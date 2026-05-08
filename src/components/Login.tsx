@@ -1,131 +1,197 @@
 "use client";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
-import { Phone, Lock, AlertCircle, Loader2, Wrench } from "lucide-react";
+import { Wrench, Delete, Phone } from "lucide-react";
+
+const KEYS = ["1","2","3","4","5","6","7","8","9","","0","⌫"];
 
 export default function Login() {
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const { login } = useAuth();
+  const [phone, setPhone] = useState("");
   const [pin, setPin] = useState("");
+  const [step, setStep] = useState<"phone" | "pin">("phone");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const [shake, setShake] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
+  const triggerShake = useCallback(() => {
+    setShake(true);
+    setTimeout(() => setShake(false), 600);
+  }, []);
 
-    const result = await login(phoneNumber, pin);
-    if (!result.success) {
-      setError(result.message || "Invalid phone number or PIN");
+  const handlePinKey = useCallback((key: string) => {
+    if (key === "⌫") {
+      setPin(p => p.slice(0, -1));
+      setError("");
+      return;
     }
+    if (key === "") return;
+    if (pin.length >= 6) return;
+    const next = pin + key;
+    setPin(next);
+
+    if (next.length === 6) {
+      // auto-submit
+      submitLogin(phone, next);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pin, phone]);
+
+  const submitLogin = async (phoneNumber: string, pinValue: string) => {
+    setLoading(true);
+    setError("");
+    const result = await login(phoneNumber, pinValue);
     setLoading(false);
+    if (!result.success) {
+      setError(result.message || "Invalid PIN or phone number.");
+      triggerShake();
+      setPin("");
+    }
+  };
+
+  const handlePhoneNext = () => {
+    if (!phone.trim()) { setError("Please enter your phone number."); return; }
+    setError("");
+    setStep("pin");
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-orange-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-orange-400/20 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-orange-400/20 to-blue-400/20 rounded-full blur-3xl"></div>
+    <div className="min-h-dvh flex flex-col items-center justify-center relative overflow-hidden"
+      style={{ background: "linear-gradient(145deg, #050a14 0%, #0a0f1e 50%, #0d1629 100%)" }}>
+
+      {/* Animated background orbs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-32 -left-32 w-72 h-72 rounded-full opacity-20 animate-float"
+          style={{ background: "radial-gradient(circle, #3b82f6 0%, transparent 70%)" }} />
+        <div className="absolute -bottom-32 -right-32 w-80 h-80 rounded-full opacity-15 animate-float"
+          style={{ background: "radial-gradient(circle, #f97316 0%, transparent 70%)", animationDelay: "1.5s" }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full opacity-5"
+          style={{ background: "radial-gradient(circle, #3b82f6 0%, transparent 60%)" }} />
+        {/* Grid lines */}
+        <div className="absolute inset-0 opacity-[0.03]"
+          style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
       </div>
 
-      <div className="relative w-full max-w-md">
-        {/* Logo/Icon Section */}
-        <div className="text-center mb-8 animate-fade-in-up">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-500 to-orange-500 rounded-2xl shadow-lg mb-4">
-            <Wrench className="w-10 h-10 text-white" />
+      <div className="relative w-full max-w-sm px-6 animate-slide-up">
+
+        {/* Logo */}
+        <div className="flex flex-col items-center mb-10">
+          <div className="relative mb-5">
+            <div className="w-20 h-20 rounded-2xl flex items-center justify-center"
+              style={{ background: "linear-gradient(135deg, #3b82f6, #1d4ed8)", boxShadow: "0 0 40px rgba(59,130,246,0.4)" }}>
+              <Wrench className="w-10 h-10 text-white" strokeWidth={2} />
+            </div>
+            <div className="absolute -inset-1 rounded-2xl opacity-30 blur-md"
+              style={{ background: "linear-gradient(135deg, #3b82f6, #1d4ed8)" }} />
           </div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-orange-600 bg-clip-text text-transparent">
-            RoadHero
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
-            Technician Portal
-          </p>
+          <h1 className="text-3xl font-black tracking-tight" style={{ color: "#f1f5f9" }}>RoadHero</h1>
+          <p className="text-sm font-medium mt-1" style={{ color: "#64748b" }}>Technician Portal</p>
         </div>
 
-        {/* Login Card */}
-        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 dark:border-gray-700/50 p-8 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
-          <h2 className="text-2xl font-semibold text-center mb-6 text-gray-900 dark:text-white">
-            Welcome Back
-          </h2>
+        {/* Phone Step */}
+        {step === "phone" && (
+          <div className="animate-scale-in">
+            <div className="rounded-2xl p-6 mb-4" style={{ background: "rgba(20,28,46,0.8)", border: "1px solid rgba(148,163,184,0.1)", backdropFilter: "blur(20px)" }}>
+              <h2 className="text-xl font-bold mb-1" style={{ color: "#f1f5f9" }}>Welcome back</h2>
+              <p className="text-sm mb-6" style={{ color: "#64748b" }}>Enter your phone number to continue</p>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Phone Number Field */}
-            <div className="space-y-2">
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Phone Number
-              </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Phone className="h-5 w-5 text-gray-400" />
+                <div className="absolute inset-y-0 left-4 flex items-center">
+                  <Phone className="w-5 h-5" style={{ color: "#3b82f6" }} />
                 </div>
                 <input
-                  id="phone"
                   type="tel"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  value={phone}
+                  onChange={e => { setPhone(e.target.value); setError(""); }}
+                  onKeyDown={e => e.key === "Enter" && handlePhoneNext()}
                   placeholder="+251911888999"
-                  className="w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all duration-200 hover:border-gray-400 dark:hover:border-gray-500"
-                  required
+                  className="w-full pl-12 pr-4 py-4 rounded-xl text-base font-medium outline-none transition-all"
+                  style={{
+                    background: "rgba(255,255,255,0.05)",
+                    border: "1px solid rgba(148,163,184,0.15)",
+                    color: "#f1f5f9",
+                    caretColor: "#3b82f6",
+                  }}
+                  autoFocus
                 />
               </div>
-            </div>
 
-            {/* PIN Field */}
-            <div className="space-y-2">
-              <label htmlFor="pin" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                6-Digit PIN
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  id="pin"
-                  type="password"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
-                  placeholder="Enter your PIN"
-                  maxLength={6}
-                  className="w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all duration-200 hover:border-gray-400 dark:hover:border-gray-500"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Error Message */}
-            {error && (
-              <div className="flex items-center space-x-2 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800 animate-fade-in-up">
-                <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                <span className="text-sm">{error}</span>
-              </div>
-            )}
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-500 to-orange-500 hover:from-blue-600 hover:to-orange-600 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0"
-            >
-              {loading ? (
-                <div className="flex items-center justify-center space-x-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Signing In...</span>
-                </div>
-              ) : (
-                "Sign In"
+              {error && (
+                <p className="mt-3 text-sm font-medium" style={{ color: "#f87171" }}>{error}</p>
               )}
-            </button>
-          </form>
 
-          {/* Footer */}
-          <div className="mt-6 text-center">
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Secure access to your technician dashboard
-            </p>
+              <button
+                onClick={handlePhoneNext}
+                className="w-full mt-5 py-4 rounded-xl text-base font-bold transition-all active:scale-95"
+                style={{ background: "linear-gradient(135deg, #3b82f6, #1d4ed8)", color: "#fff", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}
+              >
+                Continue
+              </button>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* PIN Step */}
+        {step === "pin" && (
+          <div className="animate-scale-in">
+            <div className="rounded-2xl p-6" style={{ background: "rgba(20,28,46,0.8)", border: "1px solid rgba(148,163,184,0.1)", backdropFilter: "blur(20px)" }}>
+              <button
+                onClick={() => { setStep("phone"); setPin(""); setError(""); }}
+                className="text-sm font-medium mb-5 flex items-center gap-1 transition-opacity hover:opacity-70"
+                style={{ color: "#3b82f6" }}
+              >
+                ← {phone}
+              </button>
+              <h2 className="text-xl font-bold mb-1" style={{ color: "#f1f5f9" }}>Enter your PIN</h2>
+              <p className="text-sm mb-8" style={{ color: "#64748b" }}>6-digit PIN sent by your provider</p>
+
+              {/* PIN Dots */}
+              <div className={`flex justify-center gap-4 mb-8 ${shake ? "animate-shake" : ""}`}>
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={`pin-dot ${i < pin.length ? (error ? "error" : "filled") : ""}`}
+                  />
+                ))}
+              </div>
+
+              {/* Error */}
+              {error && (
+                <p className="text-center text-sm font-medium mb-5" style={{ color: "#f87171" }}>{error}</p>
+              )}
+
+              {/* Loading overlay */}
+              {loading && (
+                <div className="flex justify-center mb-5">
+                  <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
+                    style={{ borderColor: "rgba(59,130,246,0.3)", borderTopColor: "#3b82f6" }} />
+                </div>
+              )}
+
+              {/* Keypad */}
+              {!loading && (
+                <div className="grid grid-cols-3 gap-3 place-items-center">
+                  {KEYS.map((key, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handlePinKey(key)}
+                      disabled={key === ""}
+                      className={`pin-key ${key === "" ? "opacity-0 pointer-events-none" : ""}`}
+                    >
+                      {key === "⌫"
+                        ? <Delete className="w-6 h-6" style={{ color: "#94a3b8" }} />
+                        : key}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <p className="text-center text-xs mt-6" style={{ color: "#334155" }}>
+          Secured by RoadHero · Technician Access Only
+        </p>
       </div>
     </div>
   );

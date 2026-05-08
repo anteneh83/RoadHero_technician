@@ -1,13 +1,18 @@
 "use client";
-import { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from "react";
 
-interface TechnicianProfile {
+export interface TechnicianProfile {
+  id: number;
+  user_id: number;
   full_name: string;
   phone_number: string;
-  skills: string[];
+  photo_url: string;
+  rating: string;
+  is_active: boolean;
+  specialties: string[];
   provider: {
-    business_name: string;
-    is_online: boolean;
+    id: number;
+    name: string;
   };
 }
 
@@ -15,6 +20,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (phoneNumber: string, pin: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
+  refreshProfile: () => Promise<void>;
   accessToken: string | null;
   refreshToken: string | null;
   profile: TechnicianProfile | null;
@@ -22,7 +28,7 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
-const API_BASE_URL = "https://roadhero.online/api/v1";
+export const API_BASE_URL = "https://roadhero.online/api/v1";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -31,191 +37,106 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<TechnicianProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // Check for stored tokens on mount
-    const storedAccess = localStorage.getItem('access_token');
-    const storedRefresh = localStorage.getItem('refresh_token');
-    if (storedAccess && storedRefresh) {
-      setAccessToken(storedAccess);
-      setRefreshToken(storedRefresh);
-      setIsAuthenticated(true);
-      // Fetch profile
-      fetchProfile(storedAccess);
-    } else {
-      setLoading(false);
-    }
-  }, []);
-
   const normalizeProfile = (raw: any): TechnicianProfile => {
-    // Handle null/undefined raw data
-    if (!raw) {
-      console.warn('Profile data is null or undefined');
-      return {
-        full_name: "",
-        phone_number: "",
-        skills: [],
-        provider: {
-          business_name: "",
-          is_online: false,
-        },
-      };
-    }
-
-    const profileSource = raw?.data ?? raw;
-
-    // Handle null/undefined profileSource
-    if (!profileSource) {
-      console.warn('Profile source data is null or undefined');
-      return {
-        full_name: "",
-        phone_number: "",
-        skills: [],
-        provider: {
-          business_name: "",
-          is_online: false,
-        },
-      };
-    }
-
-    const user = profileSource.user || {};
-    const technician = profileSource.technician || {};
-
-    // Safely extract values with fallbacks
-    const fullName = profileSource.full_name || user.full_name || technician.full_name || "";
-    const phoneNumber = profileSource.phone_number || user.phone_number || "";
-    const skills = Array.isArray(profileSource.skills)
-    ? (profileSource.skills as unknown[])
-        .filter((skill: unknown): skill is string => typeof skill === "string" && skill.trim() !== "")
-    : Array.isArray(technician.specialties)
-    ? (technician.specialties as unknown[])
-        .filter((specialty: unknown): specialty is string => typeof specialty === "string" && specialty.trim() !== "")
-    : [];
-
-    const provider = profileSource.provider || {};
-    const businessName = provider.business_name || technician.provider_name || "";
-    const isOnline = typeof provider.is_online === "boolean"
-      ? provider.is_online
-      : typeof technician.is_active === "boolean"
-      ? technician.is_active
-      : false;
-
+    const src = raw?.data ?? raw ?? {};
+    const specialties: string[] = Array.isArray(src.specialties)
+      ? src.specialties.filter((s: unknown): s is string => typeof s === "string" && s.trim() !== "")
+      : Array.isArray(src.skills)
+        ? src.skills.filter((s: unknown): s is string => typeof s === "string" && s.trim() !== "")
+        : [];
     return {
-      full_name: String(fullName).trim(),
-      phone_number: String(phoneNumber).trim(),
-      skills,
+      id: src.id ?? 0,
+      user_id: src.user_id ?? 0,
+      full_name: String(src.full_name ?? "").trim(),
+      phone_number: String(src.phone_number ?? "").trim(),
+      photo_url: String(src.photo_url ?? "").trim(),
+      rating: String(src.rating ?? "0.00"),
+      is_active: Boolean(src.is_active),
+      specialties,
       provider: {
-        business_name: String(businessName).trim(),
-        is_online: Boolean(isOnline),
+        id: src.provider?.id ?? 0,
+        name: String(src.provider?.name ?? src.provider?.business_name ?? "").trim(),
       },
     };
   };
 
-  const fetchProfile = async (token: string) => {
-    if (!token) {
-      console.error('Cannot fetch profile: no access token provided');
-      setLoading(false);
-      return;
-    }
-
+  const fetchProfile = useCallback(async (token: string) => {
+    if (!token) { setLoading(false); return; }
     try {
-      const response = await fetch(`${API_BASE_URL}/provider/tech/profile`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+      const res = await fetch(`${API_BASE_URL}/provider/tech/profile`, {
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       });
-
-      if (!response.ok) {
-        console.error('Failed to fetch profile:', response.status, response.statusText);
-        // Don't set profile to null on error, keep existing profile if available
-        setLoading(false);
-        return;
-      }
-
-      const data = await response.json();
-
-      // Handle various response formats
-      const profileData = data?.data || data;
-
-      if (!profileData) {
-        console.warn('Profile response contains no data');
-        setProfile({
-          full_name: "",
-          phone_number: "",
-          skills: [],
-          provider: {
-            business_name: "",
-            is_online: false,
-          },
-        });
-        setLoading(false);
-        return;
-      }
-
-      const normalizedProfile = normalizeProfile(profileData);
-      setProfile(normalizedProfile);
-
-    } catch (error) {
-      console.error('Failed to fetch profile:', error);
-      // On network error, don't clear existing profile
+      if (!res.ok) { setLoading(false); return; }
+      const data = await res.json();
+      setProfile(normalizeProfile(data?.data ?? data));
+    } catch {
+      // keep existing profile on network error
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Hydrate from localStorage on mount
+  useEffect(() => {
+    const storedAccess = localStorage.getItem("rh_access");
+    const storedRefresh = localStorage.getItem("rh_refresh");
+    if (storedAccess && storedRefresh) {
+      setAccessToken(storedAccess);
+      setRefreshToken(storedRefresh);
+      setIsAuthenticated(true);
+      fetchProfile(storedAccess);
+    } else {
+      setLoading(false);
+    }
+  }, [fetchProfile]);
 
   const login = async (phoneNumber: string, pin: string): Promise<{ success: boolean; message?: string }> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/provider/auth/tech/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          phone_number: phoneNumber,
-          pin,
-        }),
+      const res = await fetch(`${API_BASE_URL}/provider/auth/tech/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone_number: phoneNumber, pin }),
       });
-
-      const data = await response.json();
-      if (!response.ok) {
-        const message = data?.message || 'Invalid phone number or PIN';
-        console.error('Login failed:', message, data);
-        return { success: false, message };
+      const data = await res.json();
+      if (!res.ok) {
+        return { success: false, message: data?.message || "Invalid phone number or PIN." };
       }
-
-      const access = data.data?.access || data.data?.token || data.access || data.token;
-      const refresh = data.data?.refresh || data.data?.refresh_token || data.refresh || data.refresh_token;
-
+      const access = data.data?.access ?? data.data?.token ?? data.access ?? data.token;
+      const refresh = data.data?.refresh ?? data.data?.refresh_token ?? data.refresh ?? data.refresh_token;
       if (!access || !refresh) {
-        console.error('Login failed: missing access or refresh tokens', data);
-        return { success: false, message: 'Invalid login response from server' };
+        return { success: false, message: "Invalid response from server." };
       }
-
+      // Set loading BEFORE authenticating so the TechnicianLoader stays visible
+      // in page.tsx until fetchProfile completes — prevents the "Profile unavailable" flash.
+      setLoading(true);
       setAccessToken(access);
       setRefreshToken(refresh);
-      localStorage.setItem('access_token', access);
-      localStorage.setItem('refresh_token', refresh);
+      localStorage.setItem("rh_access", access);
+      localStorage.setItem("rh_refresh", refresh);
       setIsAuthenticated(true);
-      await fetchProfile(access);
+      await fetchProfile(access); // sets loading=false in its finally block
       return { success: true };
-    } catch (error) {
-      console.error('Login failed:', error);
-      return { success: false, message: 'Unable to reach login server' };
+    } catch {
+      setLoading(false);
+      return { success: false, message: "Unable to reach server. Check your connection." };
     }
   };
+
+  const refreshProfile = useCallback(async () => {
+    if (accessToken) await fetchProfile(accessToken);
+  }, [accessToken, fetchProfile]);
 
   const logout = () => {
     setIsAuthenticated(false);
     setAccessToken(null);
     setRefreshToken(null);
     setProfile(null);
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
+    localStorage.removeItem("rh_access");
+    localStorage.removeItem("rh_refresh");
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout, accessToken, refreshToken, profile, loading }}>
+    <AuthContext.Provider value={{ isAuthenticated, login, logout, refreshProfile, accessToken, refreshToken, profile, loading }}>
       {children}
     </AuthContext.Provider>
   );
