@@ -218,12 +218,12 @@ input[type="number"]::-webkit-outer-spin-button {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 72px;
-  height: 72px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.08);
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 600;
   color: var(--text-primary);
   cursor: pointer;
@@ -231,6 +231,14 @@ input[type="number"]::-webkit-outer-spin-button {
   user-select: none;
   -webkit-user-select: none;
   touch-action: manipulation;
+}
+
+@media (min-width: 640px) {
+  .pin-key {
+    width: 72px;
+    height: 72px;
+    font-size: 22px;
+  }
 }
 
 .pin-key:active, .pin-key.pressed {

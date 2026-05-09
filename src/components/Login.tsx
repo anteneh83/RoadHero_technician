@@ -146,7 +146,7 @@ export default function Login() {
               <p className="text-sm mb-8" style={{ color: "#64748b" }}>6-digit PIN sent by your provider</p>
 
               {/* PIN Dots */}
-              <div className={`flex justify-center gap-4 mb-8 ${shake ? "animate-shake" : ""}`}>
+              <div className={`flex justify-center gap-3 sm:gap-4 mb-8 ${shake ? "animate-shake" : ""}`}>
                 {Array.from({ length: 6 }).map((_, i) => (
                   <div
                     key={i}
@@ -170,7 +170,7 @@ export default function Login() {
 
               {/* Keypad */}
               {!loading && (
-                <div className="grid grid-cols-3 gap-3 place-items-center">
+                <div className="grid grid-cols-3 gap-2 sm:gap-3 place-items-center">
                   {KEYS.map((key, idx) => (
                     <button
                       key={idx}
