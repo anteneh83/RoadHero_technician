@@ -25,6 +25,7 @@ export interface Quote {
   total_amount: string;
   items: QuoteItem[];
   created_at: string;
+  rejection_reason?: string;
 }
 
 export interface NewItemPayload {
@@ -32,18 +33,26 @@ export interface NewItemPayload {
   description: string;
   quantity: number;
   unit_price: string;
-  spare_part_id?: number;
+  spare_part_id?: number | null;
+}
+
+export interface ApiResult {
+  success: boolean;
+  message?: string;
+  error_code?: string;
 }
 
 interface QuoteContextType {
   quote: Quote | null;
   quoteLoading: boolean;
   quoteError: string | null;
+  quoteErrorCode: string | null;
   createQuote: (jobId: number, notes?: string) => Promise<Quote | null>;
   getQuote: (quoteId: number) => Promise<Quote | null>;
+  fetchQuoteByJob: (jobId: number) => Promise<Quote | null>;
   addItem: (quoteId: number, item: NewItemPayload) => Promise<QuoteItem | null>;
-  removeItem: (quoteId: number, itemId: number) => Promise<boolean>;
-  submitQuote: (quoteId: number) => Promise<{ success: boolean; message?: string }>;
+  removeItem: (quoteId: number, itemId: number) => Promise<ApiResult>;
+  submitQuote: (quoteId: number) => Promise<ApiResult>;
   clearQuote: () => void;
 }
 
@@ -54,68 +63,117 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
   const [quote, setQuote] = useState<Quote | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
+  const [quoteErrorCode, setQuoteErrorCode] = useState<string | null>(null);
 
+  const headers = useCallback((): HeadersInit => ({
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
+  }), [accessToken]);
+
+  const setError = (msg: string | null, code: string | null = null) => {
+    setQuoteError(msg);
+    setQuoteErrorCode(code);
+  };
+
+  // ─── Create Quote ──────────────────────────────────────────────────────────
   const createQuote = useCallback(async (jobId: number, notes = ""): Promise<Quote | null> => {
     if (!accessToken) return null;
     setQuoteLoading(true);
-    setQuoteError(null);
+    setError(null);
     try {
       const res = await fetch(`${API_BASE_URL}/provider/jobs/${jobId}/quotes`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        headers: headers(),
         body: JSON.stringify({ notes }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setQuoteError(data?.message || "Failed to create quote.");
+        setError(data?.message || "Failed to create quote.", data?.error_code ?? null);
         return null;
       }
-      const q: Quote = data.data ?? data;
+      const q: Quote = { ...(data.data ?? data), items: data.data?.items ?? [] };
       setQuote(q);
       return q;
     } catch {
-      setQuoteError("Network error. Please try again.");
+      setError("Network error. Please try again.");
       return null;
     } finally {
       setQuoteLoading(false);
     }
-  }, [accessToken]);
+  }, [accessToken, headers]);
 
+  // ─── Get Quote ─────────────────────────────────────────────────────────────
   const getQuote = useCallback(async (quoteId: number): Promise<Quote | null> => {
     if (!accessToken) return null;
     setQuoteLoading(true);
-    setQuoteError(null);
+    setError(null);
     try {
       const res = await fetch(`${API_BASE_URL}/provider/quotes/${quoteId}`, {
-        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        headers: headers(),
       });
       const data = await res.json();
       if (!res.ok) {
-        setQuoteError(data?.message || "Failed to fetch quote.");
+        setError(data?.message || "Failed to fetch quote.", data?.error_code ?? null);
         return null;
       }
       const q: Quote = data.data ?? data;
       setQuote(q);
       return q;
     } catch {
-      setQuoteError("Network error. Please try again.");
+      setError("Network error. Please try again.");
       return null;
     } finally {
       setQuoteLoading(false);
     }
-  }, [accessToken]);
+  }, [accessToken, headers]);
 
-  const addItem = useCallback(async (quoteId: number, item: NewItemPayload): Promise<QuoteItem | null> => {
+  // ─── Fetch Quote by Job ID ─────────────────────────────────────────────────
+  const fetchQuoteByJob = useCallback(async (jobId: number): Promise<Quote | null> => {
     if (!accessToken) return null;
+    setQuoteLoading(true);
+    setError(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/provider/quotes/${quoteId}/items`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify(item),
+      const res = await fetch(`${API_BASE_URL}/provider/jobs/${jobId}/quotes`, {
+        headers: headers(),
       });
       const data = await res.json();
       if (!res.ok) {
-        setQuoteError(data?.message || "Failed to add item.");
+        setError(data?.message || "Failed to fetch quote for this job.", data?.error_code ?? null);
+        return null;
+      }
+      // If it returns a list of quotes, grab the most recent one
+      const q: Quote = Array.isArray(data.data) ? data.data[0] : (data.data ?? data);
+      return q;
+    } catch {
+      setError("Network error. Please try again.");
+      return null;
+    } finally {
+      setQuoteLoading(false);
+    }
+  }, [accessToken, headers]);
+
+  // ─── Add Line Item ─────────────────────────────────────────────────────────
+  const addItem = useCallback(async (quoteId: number, item: NewItemPayload): Promise<QuoteItem | null> => {
+    if (!accessToken) return null;
+    setError(null);
+    try {
+      // Strip spare_part_id if null/undefined to keep payload clean
+      const payload: Record<string, unknown> = {
+        item_type: item.item_type,
+        description: item.description,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+      };
+      if (item.spare_part_id != null) payload.spare_part_id = item.spare_part_id;
+
+      const res = await fetch(`${API_BASE_URL}/provider/quotes/${quoteId}/items`, {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data?.message || "Failed to add item.", data?.error_code ?? null);
         return null;
       }
       const newItem: QuoteItem = data.data ?? data;
@@ -127,18 +185,20 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
       });
       return newItem;
     } catch {
-      setQuoteError("Network error. Please try again.");
+      setError("Network error. Please try again.");
       return null;
     }
-  }, [accessToken]);
+  }, [accessToken, headers]);
 
-  const removeItem = useCallback(async (quoteId: number, itemId: number): Promise<boolean> => {
-    if (!accessToken) return false;
+  // ─── Remove Line Item ──────────────────────────────────────────────────────
+  const removeItem = useCallback(async (quoteId: number, itemId: number): Promise<ApiResult> => {
+    if (!accessToken) return { success: false, message: "Not authenticated." };
     try {
       const res = await fetch(`${API_BASE_URL}/provider/quotes/${quoteId}/items/${itemId}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        headers: headers(),
       });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
         setQuote(prev => {
           if (!prev) return prev;
@@ -146,39 +206,48 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
           const total = items.reduce((s, i) => s + parseFloat(i.line_total), 0);
           return { ...prev, items, total_amount: total.toFixed(2) };
         });
-        return true;
+        return { success: true, message: data?.message };
       }
-      return false;
+      return { success: false, message: data?.message || "Failed to remove item.", error_code: data?.error_code };
     } catch {
-      return false;
+      return { success: false, message: "Network error. Please try again." };
     }
-  }, [accessToken]);
+  }, [accessToken, headers]);
 
-  const submitQuote = useCallback(async (quoteId: number): Promise<{ success: boolean; message?: string }> => {
+  // ─── Submit Quote to Driver ────────────────────────────────────────────────
+  const submitQuote = useCallback(async (quoteId: number): Promise<ApiResult> => {
     if (!accessToken) return { success: false, message: "Not authenticated." };
     try {
       const res = await fetch(`${API_BASE_URL}/provider/quotes/${quoteId}/submit`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        headers: headers(),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
         setQuote(prev => prev ? { ...prev, status: "SENT" } : prev);
-        return { success: true, message: data?.message };
+        return { success: true, message: data?.message || "Quote sent to driver for approval." };
       }
-      return { success: false, message: data?.message || "Failed to submit quote." };
+      return {
+        success: false,
+        message: data?.message || "Failed to submit quote.",
+        error_code: data?.error_code,
+      };
     } catch {
       return { success: false, message: "Network error. Please try again." };
     }
-  }, [accessToken]);
+  }, [accessToken, headers]);
 
+  // ─── Clear ─────────────────────────────────────────────────────────────────
   const clearQuote = useCallback(() => {
     setQuote(null);
-    setQuoteError(null);
+    setError(null);
   }, []);
 
   return (
-    <QuoteContext.Provider value={{ quote, quoteLoading, quoteError, createQuote, getQuote, addItem, removeItem, submitQuote, clearQuote }}>
+    <QuoteContext.Provider value={{
+      quote, quoteLoading, quoteError, quoteErrorCode,
+      createQuote, getQuote, fetchQuoteByJob, addItem, removeItem, submitQuote, clearQuote,
+    }}>
       {children}
     </QuoteContext.Provider>
   );
