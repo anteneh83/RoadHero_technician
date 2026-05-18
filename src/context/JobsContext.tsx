@@ -170,7 +170,7 @@ export function JobsProvider({ children }: { children: ReactNode }) {
         { headers: authHeaders() },
       );
       const data = await res.json();
-      // console.log("History data response:", data);
+
       if (!res.ok) {
         setHistoryError(data?.message || "Failed to load history.");
         return;

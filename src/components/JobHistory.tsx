@@ -1,12 +1,127 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useJobs, Job } from "../context/JobsContext";
 import {
   Clock, CheckCircle, XCircle, Car, User,
   RefreshCw, ChevronDown, Loader2, FileText, DollarSign,
+  MapPin, X, Navigation, Building2, Phone, Calendar
 } from "lucide-react";
 
-function HistoryCard({ job, delay }: { job: Job; delay: number }) {
+// ─── Modal for Job Details ────────────────────────────────────────────────────
+function JobDetailModal({ job, onClose }: { job: Job; onClose: () => void }) {
+  const isCompleted = job.status === "COMPLETED";
+  const isCancelled = job.status === "CANCELLED";
+
+  const completedDate = job.completed_at
+    ? new Date(job.completed_at).toLocaleDateString("en-US", {
+        month: "short", day: "numeric", year: "numeric",
+        hour: "2-digit", minute: "2-digit"
+      })
+    : null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end animate-fade-in"
+      style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}>
+      <div className="w-full max-h-[90dvh] flex flex-col rounded-t-3xl animate-sheet-up overflow-hidden"
+        style={{ background: "#0f172a", border: "1px solid rgba(148,163,184,0.12)" }}>
+        
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 flex-shrink-0 border-b"
+          style={{ borderColor: "rgba(148,163,184,0.08)" }}>
+          <div>
+            <h3 className="text-lg font-black text-slate-100 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-blue-500" /> Job Detail
+            </h3>
+            <p className="text-xs mt-1 font-mono text-slate-400">
+              Job #{job.id} · <span className={
+                isCompleted ? "text-emerald-400" :
+                isCancelled ? "text-red-400" : "text-blue-400"
+              }>{job.status}</span>
+            </p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 active:scale-90">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          
+          {/* Main info */}
+          <div className="rounded-xl p-4 space-y-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(148,163,184,0.08)" }}>
+            <h4 className="text-base font-bold text-slate-200">{job.service_type || "Service Request"}</h4>
+            
+            {job.provider_name && (
+              <p className="flex items-center gap-2 text-sm text-slate-400">
+                <Building2 className="w-4 h-4 text-purple-400 flex-shrink-0" />
+                {job.provider_name}
+              </p>
+            )}
+
+            <p className="flex items-center gap-2 text-sm text-slate-400">
+              <User className="w-4 h-4 text-blue-400 flex-shrink-0" />
+              {job.driver?.name || "—"}
+            </p>
+
+            {job.driver?.phone && (
+              <a href={`tel:${job.driver.phone}`} className="flex items-center gap-2 text-sm text-blue-500">
+                <Phone className="w-4 h-4 flex-shrink-0" />
+                {job.driver.phone}
+              </a>
+            )}
+
+            {job.incident_location?.address && (
+              <p className="flex items-center gap-2 text-sm text-slate-400">
+                <MapPin className="w-4 h-4 text-orange-400 flex-shrink-0" />
+                {job.incident_location.address}
+              </p>
+            )}
+            
+            {job.vehicle && (job.vehicle.make || job.vehicle.model) && (
+              <p className="flex items-center gap-2 text-sm text-slate-400">
+                <Car className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                {[job.vehicle.year, job.vehicle.make, job.vehicle.model].filter(Boolean).join(" ")}
+                {job.vehicle.plate && (
+                  <span className="ml-1 px-1.5 py-0.5 rounded font-mono bg-blue-500/10 text-blue-400 text-xs">
+                    {job.vehicle.plate}
+                  </span>
+                )}
+              </p>
+            )}
+            
+            {completedDate && (
+              <p className="flex items-center gap-2 text-sm text-slate-400">
+                <Calendar className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                Completed: {completedDate}
+              </p>
+            )}
+          </div>
+
+          {/* Description */}
+          {job.description && (
+            <div className="rounded-xl p-4 bg-white/5 border border-white/5">
+              <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-2">Diagnostic Notes</p>
+              <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{job.description}</p>
+            </div>
+          )}
+          
+          {/* Price */}
+          {job.final_price != null && parseFloat(job.final_price) > 0 && (
+            <div className="rounded-2xl p-5 flex items-center justify-between bg-slate-800/50 border border-slate-700/50">
+              <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Final Price</p>
+              <span className="text-2xl font-black text-emerald-400">
+                {parseFloat(job.final_price).toLocaleString()} ETB
+              </span>
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HistoryCard({ job, delay, onClick }: { job: Job; delay: number; onClick: () => void }) {
   const isCompleted = job.status === "COMPLETED";
   const isCancelled = job.status === "CANCELLED";
 
@@ -24,8 +139,9 @@ function HistoryCard({ job, delay }: { job: Job; delay: number }) {
   const hasAmount = job.final_price != null && parseFloat(job.final_price) > 0;
 
   return (
-    <div
-      className="rounded-2xl overflow-hidden animate-slide-up"
+    <button
+      onClick={onClick}
+      className="w-full text-left rounded-2xl overflow-hidden animate-slide-up active:scale-[0.98] transition-transform"
       style={{
         background: "rgba(20,28,46,0.92)",
         border: `1px solid ${isCompleted ? "rgba(16,185,129,0.15)" : "rgba(148,163,184,0.08)"}`,
@@ -92,41 +208,8 @@ function HistoryCard({ job, delay }: { job: Job; delay: number }) {
           </div>
         </div>
 
-        {/* Vehicle */}
-        {job.vehicle && (job.vehicle.make || job.vehicle.model) && (
-          <p className="flex items-center gap-1.5 text-xs mb-2" style={{ color: "#475569" }}>
-            <Car className="w-3.5 h-3.5 flex-shrink-0" />
-            {[job.vehicle.year, job.vehicle.make, job.vehicle.model].filter(Boolean).join(" ")}
-            {job.vehicle.plate && (
-              <span className="ml-1 px-1.5 py-0.5 rounded font-mono"
-                style={{ background: "rgba(59,130,246,0.1)", color: "#60a5fa" }}>
-                {job.vehicle.plate}
-              </span>
-            )}
-          </p>
-        )}
-
-        {/* Description */}
-        {job.description && (
-          <div
-            className="rounded-xl px-3 py-2 mt-2"
-            style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(148,163,184,0.07)" }}
-          >
-            <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "#334155" }}>
-              <FileText className="w-3 h-3 inline mr-1" />Description
-            </p>
-            <p className="text-xs leading-relaxed" style={{ color: "#64748b" }}>
-              {job.description}
-            </p>
-          </div>
-        )}
-
-        {/* Job ID */}
-        <p className="text-xs mt-2 font-mono" style={{ color: "#1e293b" }}>
-          Job #{job.id}
-        </p>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -136,6 +219,7 @@ export default function JobHistory() {
     historyLoading, historyError,
     fetchHistory, loadMoreHistory,
   } = useJobs();
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
 
   useEffect(() => {
     fetchHistory(1);
@@ -250,7 +334,7 @@ export default function JobHistory() {
 
         {/* History cards */}
         {history.map((job, i) => (
-          <HistoryCard key={job.id} job={job} delay={i * 0.04} />
+          <HistoryCard key={job.id} job={job} delay={i * 0.04} onClick={() => setSelectedJob(job)} />
         ))}
 
         {/* Load more */}
@@ -282,6 +366,11 @@ export default function JobHistory() {
           </p>
         )}
       </div>
+
+      {/* Detail Modal */}
+      {selectedJob && (
+        <JobDetailModal job={selectedJob} onClose={() => setSelectedJob(null)} />
+      )}
     </div>
   );
 }

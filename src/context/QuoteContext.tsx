@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useContext, useState, ReactNode, useCallback } from "react";
+import { createContext, useContext, useState, ReactNode, useCallback, useRef } from "react";
 import { useAuth, API_BASE_URL } from "./AuthContext";
 
 export type QuoteStatus = "DRAFT" | "SENT" | "APPROVED" | "REJECTED" | "REVISED";
@@ -64,6 +64,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [quoteErrorCode, setQuoteErrorCode] = useState<string | null>(null);
+  const quoteMapRef = useRef<Record<number, number>>({});
 
   const headers = useCallback((): HeadersInit => ({
     Authorization: `Bearer ${accessToken}`,
@@ -93,6 +94,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
       }
       const q: Quote = { ...(data.data ?? data), items: data.data?.items ?? [] };
       setQuote(q);
+      quoteMapRef.current[jobId] = q.id;
       return q;
     } catch {
       setError("Network error. Please try again.");
@@ -133,17 +135,38 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
     setQuoteLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/provider/jobs/${jobId}/quotes`, {
-        headers: headers(),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data?.message || "Failed to fetch quote for this job.", data?.error_code ?? null);
-        return null;
+      let knownQuoteId = quoteMapRef.current[jobId];
+
+      if (!knownQuoteId) {
+        const res = await fetch(`${API_BASE_URL}/provider/jobs/${jobId}/quotes`, {
+          headers: headers(),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data?.message || "Failed to fetch quote for this job.", data?.error_code ?? null);
+          return null;
+        }
+        const qSummary = Array.isArray(data.data) ? data.data[0] : (data.data ?? data);
+        if (qSummary && qSummary.id) {
+          knownQuoteId = qSummary.id;
+          quoteMapRef.current[jobId] = knownQuoteId;
+        }
       }
-      // If it returns a list of quotes, grab the most recent one
-      const q: Quote = Array.isArray(data.data) ? data.data[0] : (data.data ?? data);
-      return q;
+
+      if (knownQuoteId) {
+        const res = await fetch(`${API_BASE_URL}/provider/quotes/${knownQuoteId}`, {
+          headers: headers(),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data?.message || "Failed to fetch quote details.", data?.error_code ?? null);
+          return null;
+        }
+        return data.data ?? data;
+      }
+
+      setError("No quote found for this job.");
+      return null;
     } catch {
       setError("Network error. Please try again.");
       return null;

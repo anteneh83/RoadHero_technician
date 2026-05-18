@@ -35,22 +35,12 @@ const STATUS_META: Record<string, { label: string; cls: string; icon: React.Elem
 };
 
 // ─── Status transitions (matches backend exactly) ─────────────────────────────
-// ACCEPTED ↔ EN_ROUTE ↔ ARRIVED ↔ IN_PROGRESS → COMPLETED
-const NEXT_ACTIONS: Partial<Record<JobStatus, { label: string; next: JobStatus; color: string; isUndo?: boolean }[]>> = {
+const NEXT_ACTIONS: Partial<Record<JobStatus, { label: string; next: JobStatus; color: string }[]>> = {
   ACCEPTED:       [{ label: "I'm On My Way",    next: "EN_ROUTE",    color: "#06b6d4" }],
-  EN_ROUTE:       [
-    { label: "I've Arrived",     next: "ARRIVED",     color: "#3b82f6" },
-    { label: "Undo (Back to Accepted)", next: "ACCEPTED", color: "#64748b", isUndo: true }
-  ],
-  ARRIVED:        [
-    { label: "Start Work",       next: "IN_PROGRESS", color: "#8b5cf6" },
-    { label: "Undo (Back to En Route)", next: "EN_ROUTE", color: "#64748b", isUndo: true }
-  ],
+  EN_ROUTE:       [{ label: "I've Arrived",     next: "ARRIVED",     color: "#3b82f6" }],
+  ARRIVED:        [{ label: "Start Work",       next: "IN_PROGRESS", color: "#8b5cf6" }],
   QUOTE_ACCEPTED: [{ label: "Start Work",       next: "IN_PROGRESS", color: "#8b5cf6" }],
-  IN_PROGRESS:    [
-    { label: "Complete Job ✓",   next: "COMPLETED",   color: "#10b981" },
-    { label: "Undo (Back to Arrived)", next: "ARRIVED", color: "#64748b", isUndo: true }
-  ],
+  IN_PROGRESS:    [{ label: "Complete Job ✓",   next: "COMPLETED",   color: "#10b981" }],
 };
 
 // ─── StatusChip ──────────────────────────────────────────────────────────────
@@ -335,10 +325,8 @@ function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: num
           {!confirmComplete && actions.map(a => (
             <button key={a.label} onClick={() => handleAction(a.next, a.label)}
               disabled={!!actionLoading}
-              className={`w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 ${a.isUndo ? 'mt-2' : ''}`}
-              style={a.isUndo ? {
-                background: "transparent", border: "1px solid rgba(148,163,184,0.3)", color: "#94a3b8"
-              } : {
+              className="w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+              style={{
                 background: `${a.color}22`, border: `1px solid ${a.color}44`, color: a.color
               }}>
               {actionLoading === a.label ? <Loader2 className="w-4 h-4 animate-spin" /> : a.label}
