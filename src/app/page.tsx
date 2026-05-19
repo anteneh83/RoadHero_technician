@@ -1,4 +1,5 @@
 "use client";
+import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import Login from "../components/Login";
 import Dashboard from "../components/Dashboard";
@@ -153,9 +154,18 @@ function TechnicianLoader() {
 
 export default function Home() {
   const { isAuthenticated, loading } = useAuth();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Return null on the server / before client mount so the server-rendered
+  // HTML is always an empty shell — preventing hydration mismatches caused
+  // by auth state being read from localStorage (client-only).
+  if (!mounted) return <main suppressHydrationWarning />;
 
   if (loading) return <TechnicianLoader />;
 
   return isAuthenticated ? <Dashboard /> : <Login />;
 }
-

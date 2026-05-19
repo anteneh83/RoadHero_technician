@@ -73,7 +73,7 @@ export default function Profile() {
             <span className="text-sm font-semibold uppercase tracking-widest" style={{ color: "#475569" }}>Provider</span>
           </div>
           <p className="text-xl font-bold" style={{ color: "#f1f5f9" }}>
-            {profile.provider.name || "—"}
+            {profile.provider?.name || "—"}
           </p>
         </div>
 
@@ -87,7 +87,7 @@ export default function Profile() {
             </div>
             <span className="text-sm font-semibold uppercase tracking-widest" style={{ color: "#475569" }}>Specialties</span>
           </div>
-          {profile.specialties.length === 0
+          {(!profile.specialties || profile.specialties.length === 0)
             ? <p className="text-sm" style={{ color: "#475569" }}>No specialties listed.</p>
             : (
               <div className="flex flex-wrap gap-2">
@@ -134,7 +134,7 @@ export default function Profile() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "#475569" }}>Specialties</p>
-              <p className="text-2xl font-black" style={{ color: "#f1f5f9" }}>{profile.specialties.length}</p>
+              <p className="text-2xl font-black" style={{ color: "#f1f5f9" }}>{profile.specialties?.length || 0}</p>
             </div>
             <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
               style={{ background: "rgba(139,92,246,0.15)" }}>

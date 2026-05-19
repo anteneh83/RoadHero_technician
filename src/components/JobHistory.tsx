@@ -12,7 +12,7 @@ function JobDetailModal({ job, onClose }: { job: Job; onClose: () => void }) {
   const isCompleted = job.status === "COMPLETED";
   const isCancelled = job.status === "CANCELLED";
 
-  const completedDate = job.completed_at
+  const completedDate = (job.completed_at && !isNaN(new Date(job.completed_at).getTime()))
     ? new Date(job.completed_at).toLocaleDateString("en-US", {
         month: "short", day: "numeric", year: "numeric",
         hour: "2-digit", minute: "2-digit"
@@ -125,12 +125,12 @@ function HistoryCard({ job, delay, onClick }: { job: Job; delay: number; onClick
   const isCompleted = job.status === "COMPLETED";
   const isCancelled = job.status === "CANCELLED";
 
-  const completedDate = job.completed_at
+  const completedDate = (job.completed_at && !isNaN(new Date(job.completed_at).getTime()))
     ? new Date(job.completed_at).toLocaleDateString("en-US", {
         month: "short", day: "numeric", year: "numeric",
       })
     : null;
-  const completedTime = job.completed_at
+  const completedTime = (job.completed_at && !isNaN(new Date(job.completed_at).getTime()))
     ? new Date(job.completed_at).toLocaleTimeString("en-US", {
         hour: "2-digit", minute: "2-digit",
       })

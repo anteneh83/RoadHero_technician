@@ -1,6 +1,7 @@
 "use client";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuote, NewItemPayload, ItemType } from "../context/QuoteContext";
+import { useAuth, API_BASE_URL } from "../context/AuthContext";
 import {
   X, Plus, Trash2, Wrench, Package, Send, Loader2,
   CheckCircle, AlertCircle, Hash, RotateCcw, Info,
@@ -13,6 +14,16 @@ interface QuoteModalProps {
 }
 
 type Step = "notes" | "items" | "submitted";
+
+interface InventoryItem {
+  id: number;
+  name: string;
+  price: number;           // parsed from string
+  available_quantity: number;  // from API: available_quantity
+  is_in_stock: boolean;    // from API: is_in_stock
+  description?: string;
+  low_stock_threshold: number;
+}
 
 const EMPTY_ITEM = {
   item_type: "PART" as ItemType,
@@ -71,6 +82,11 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
     createQuote, addItem, removeItem, submitQuote, clearQuote,
   } = useQuote();
 
+  const { accessToken, profile } = useAuth();
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [inventoryLoading, setInventoryLoading] = useState(false);
+  const [inventoryError, setInventoryError] = useState<string | null>(null);
+
   const [notes, setNotes] = useState("");
   const [step, setStep] = useState<Step>("notes");
   const [newItem, setNewItem] = useState({ ...EMPTY_ITEM });
@@ -79,6 +95,87 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<{ ok: boolean; msg: string } | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [showPartsDropdown, setShowPartsDropdown] = useState(false);
+
+  const fetchInventory = useCallback(async () => {
+    if (!accessToken) return;
+    setInventoryLoading(true);
+    setInventoryError(null);
+
+    const providerId = profile?.provider?.id;
+   
+    // ── Attempt 1: provider inventory (works if tech token has access) ──
+    try {
+      const url1 = `${API_BASE_URL}/provider/inventory/`;
+      const res1 = await fetch(url1, {
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      });
+      const body1 = await res1.json();
+
+      if (res1.ok) {
+        const raw = body1.data ?? body1;
+        const list: InventoryItem[] = Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.results)
+          ? raw.results
+          : [];
+        setInventoryItems(list);
+        setInventoryLoading(false);
+        return;
+      }
+      console.warn(`[Inventory] Attempt 1 failed: ${res1.status} — ${body1?.message ?? "unknown error"}`);
+    } catch (err) {
+      console.error("[Inventory] Attempt 1 network error:", err);
+    }
+
+    // ── Attempt 2: public spare-parts endpoint via provider ID ──
+    if (providerId) {
+      try {
+        const url2 = `${API_BASE_URL}/driver/providers/${providerId}/spare-parts`;
+        const res2 = await fetch(url2, {
+          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        });
+        const body2 = await res2.json();
+
+        if (res2.ok) {
+          const raw = body2.data ?? body2;
+          const list: InventoryItem[] = Array.isArray(raw)
+            ? raw
+            : Array.isArray(raw?.results)
+            ? raw.results
+            : [];
+          // normalise field names from API response
+          const normalised: InventoryItem[] = list.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            price: parseFloat(p.price ?? p.unit_price ?? "0"),
+            available_quantity: p.available_quantity ?? p.quantity ?? p.stock ?? 0,
+            is_in_stock: p.is_in_stock ?? ((p.available_quantity ?? p.quantity ?? 0) > 0),
+            description: p.description,
+            low_stock_threshold: p.low_stock_threshold ?? 5,
+          }));
+          setInventoryItems(normalised);
+          setInventoryLoading(false);
+          return;
+        }
+        console.warn(`[Inventory] Attempt 2 failed: ${res2.status} — ${body2?.message ?? "unknown"}`);
+      } catch (err) {
+        console.error("[Inventory] Attempt 2 network error:", err);
+      }
+    }
+
+    // Both attempts failed
+    const errMsg = "Could not load spare parts — parts can still be entered manually.";
+    console.error(`[Inventory] All attempts failed.`);
+    setInventoryError(errMsg);
+    setInventoryLoading(false);
+  }, [accessToken, profile]);
+
+  useEffect(() => {
+    if (step === "items") {
+      fetchInventory();
+    }
+  }, [step, fetchInventory]);
 
   const showToast = (ok: boolean, msg: string) => {
     setToast({ ok, msg });
@@ -404,34 +501,191 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
                   />
                 </div>
 
-                {/* Spare Part ID (optional — links to inventory) */}
-                {newItem.item_type === "PART" && (
-                  <div className="relative">
-                    <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "#475569" }} />
-                    <input
-                      type="number"
-                      placeholder="Spare Part ID (optional — links to inventory)"
-                      min={1}
-                      value={newItem.spare_part_id}
-                      onChange={e => setNewItem(p => ({ ...p, spare_part_id: e.target.value }))}
-                      className="w-full pl-9 pr-4 py-3 rounded-xl text-sm outline-none"
-                      style={{
-                        background: "rgba(167,139,250,0.06)",
-                        border: "1px solid rgba(167,139,250,0.2)",
-                        color: "#c4b5fd",
-                        caretColor: "#a78bfa",
-                      }}
-                    />
-                  </div>
-                )}
+                {/* ── Spare Part Custom Picker ─────────────────────── */}
+                {newItem.item_type === "PART" && (() => {
+                  const selectedPart = inventoryItems.find(i => i.id.toString() === newItem.spare_part_id);
+                  return (
+                    <div className="space-y-2">
+                      <label className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#7c3aed" }}>
+                        Spare Part — links to inventory
+                      </label>
+
+                      {/* Trigger button */}
+                      <button
+                        type="button"
+                        onClick={() => !inventoryLoading && setShowPartsDropdown(v => !v)}
+                        className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm text-left"
+                        style={{
+                          background: "rgba(167,139,250,0.06)",
+                          border: `1px solid ${inventoryError ? "rgba(239,68,68,0.3)" : showPartsDropdown ? "rgba(167,139,250,0.5)" : "rgba(167,139,250,0.2)"}`,
+                          color: selectedPart ? "#c4b5fd" : "#475569",
+                        }}
+                      >
+                        <span className="truncate">
+                          {inventoryLoading
+                            ? "⏳ Loading parts…"
+                            : selectedPart
+                            ? selectedPart.name
+                            : inventoryError
+                            ? "⚠️ Could not load — enter manually"
+                            : inventoryItems.length === 0
+                            ? "No parts in inventory"
+                            : "Select spare part (optional)"}
+                        </span>
+                        <span className="ml-2 flex-shrink-0" style={{ color: "#7c3aed" }}>
+                          {inventoryLoading
+                            ? <Loader2 className="w-4 h-4 animate-spin" />
+                            : <span className="text-xs">{showPartsDropdown ? "▲" : "▼"}</span>}
+                        </span>
+                      </button>
+
+                      {/* Custom dropdown list */}
+                      {showPartsDropdown && !inventoryLoading && (
+                        <div
+                          className="rounded-xl overflow-hidden"
+                          style={{
+                            border: "1px solid rgba(167,139,250,0.25)",
+                            background: "rgba(15,23,42,0.98)",
+                            maxHeight: 260,
+                            overflowY: "auto",
+                          }}
+                        >
+                          {/* Clear selection row */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNewItem(p => ({ ...p, spare_part_id: "", description: "", unit_price: "" }));
+                              setShowPartsDropdown(false);
+                            }}
+                            className="w-full flex items-center px-4 py-2.5 text-left text-xs"
+                            style={{ color: "#475569", borderBottom: "1px solid rgba(148,163,184,0.08)" }}
+                          >
+                            — No part selected (manual entry)
+                          </button>
+
+                          {inventoryItems.map(item => {
+                            const isSelected = item.id.toString() === newItem.spare_part_id;
+                            const outOfStock = !item.is_in_stock;
+                            const lowStock = item.is_in_stock && item.available_quantity <= item.low_stock_threshold;
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                disabled={outOfStock}
+                                onClick={() => {
+                                  if (outOfStock) return;
+                                  setNewItem(p => ({
+                                    ...p,
+                                    spare_part_id: item.id.toString(),
+                                    description: item.name,
+                                    unit_price: item.price.toString(),
+                                  }));
+                                  setShowPartsDropdown(false);
+                                }}
+                                className="w-full flex items-center justify-between px-4 py-3 text-left"
+                                style={{
+                                  borderBottom: "1px solid rgba(148,163,184,0.06)",
+                                  background: isSelected
+                                    ? "rgba(167,139,250,0.12)"
+                                    : outOfStock
+                                    ? "transparent"
+                                    : "transparent",
+                                  opacity: outOfStock ? 0.45 : 1,
+                                  cursor: outOfStock ? "not-allowed" : "pointer",
+                                }}
+                              >
+                                {/* Left: name */}
+                                <div className="flex-1 min-w-0 mr-3">
+                                  <p className="text-sm font-semibold truncate"
+                                    style={{ color: isSelected ? "#c4b5fd" : outOfStock ? "#475569" : "#e2e8f0" }}>
+                                    {item.name}
+                                  </p>
+                                  <p className="text-xs mt-0.5" style={{ color: "#64748b" }}>
+                                    {item.price.toLocaleString()} ETB per unit
+                                  </p>
+                                </div>
+
+                                {/* Right: stock badge */}
+                                <div className="flex-shrink-0 text-right">
+                                  <span
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold"
+                                    style={{
+                                      background: outOfStock
+                                        ? "rgba(239,68,68,0.12)"
+                                        : lowStock
+                                        ? "rgba(249,115,22,0.12)"
+                                        : "rgba(16,185,129,0.12)",
+                                      color: outOfStock ? "#f87171" : lowStock ? "#f97316" : "#34d399",
+                                    }}
+                                  >
+                                    {outOfStock ? "Out of stock" : `${item.available_quantity} left`}
+                                  </span>
+                                  {isSelected && (
+                                    <p className="text-xs mt-1" style={{ color: "#7c3aed" }}>✓ selected</p>
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Error notice */}
+                      {inventoryError && (
+                        <p className="text-xs flex items-start gap-1.5" style={{ color: "#f97316" }}>
+                          <Info className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                          {inventoryError}
+                        </p>
+                      )}
+
+                      {/* Selected part info strip */}
+                      {selectedPart && (
+                        <div className="flex items-center justify-between px-3 py-2 rounded-xl"
+                          style={{ background: "rgba(167,139,250,0.08)", border: "1px solid rgba(167,139,250,0.15)" }}>
+                          <p className="text-xs flex items-center gap-1.5" style={{ color: "#a78bfa" }}>
+                            <Info className="w-3 h-3" />
+                            Auto-deducted on driver approval
+                          </p>
+                          <span className="text-xs font-bold"
+                            style={{ color: selectedPart.available_quantity <= selectedPart.low_stock_threshold ? "#f97316" : "#34d399" }}>
+                            {selectedPart.available_quantity} in stock
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Stats row */}
+                      {!inventoryLoading && !inventoryError && inventoryItems.length > 0 && (
+                        <p className="text-xs" style={{ color: "#334155" }}>
+                          {inventoryItems.length} part{inventoryItems.length !== 1 ? "s" : ""} in warehouse
+                          {inventoryItems.filter(i => !i.is_in_stock).length > 0 &&
+                            <span style={{ color: "#ef4444" }}> · {inventoryItems.filter(i => !i.is_in_stock).length} out of stock</span>}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
+
+
 
                 {/* Spare part info hint */}
-                {newItem.item_type === "PART" && newItem.spare_part_id && (
-                  <p className="text-xs flex items-center gap-1.5" style={{ color: "#a78bfa" }}>
-                    <Info className="w-3 h-3" />
-                    Linked part will be auto-deducted from inventory when driver approves.
-                  </p>
-                )}
+                {newItem.item_type === "PART" && newItem.spare_part_id && (() => {
+                  const selected = inventoryItems.find(item => item.id.toString() === newItem.spare_part_id);
+                  return (
+                    <div className="space-y-1">
+                      <p className="text-xs flex items-center gap-1.5" style={{ color: "#a78bfa" }}>
+                        <Info className="w-3 h-3" />
+                        Linked part will be auto-deducted from inventory when driver approves.
+                      </p>
+                      {selected && (
+                        <p className="text-xs flex items-center gap-1" style={{ color: selected.available_quantity <= selected.low_stock_threshold ? "#f97316" : "#34d399" }}>
+                          Live Stock: <span className="font-bold">{selected.available_quantity} units</span> available
+                          {selected.available_quantity <= selected.low_stock_threshold && " ⚠️ Low Stock!"}
+                          {!selected.is_in_stock && " 🚫 Out of Stock!"}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Local form error */}
                 {localError && <ErrorBanner message={localError} code={quoteErrorCode} />}
