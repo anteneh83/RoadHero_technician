@@ -82,7 +82,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
     setQuoteLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/provider/jobs/${jobId}/quotes`, {
+      const res = await fetch(`${API_BASE_URL}/provider/tech/jobs/${jobId}/quotes`, {
         method: "POST",
         headers: headers(),
         body: JSON.stringify({ notes }),
@@ -110,7 +110,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
     setQuoteLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/provider/quotes/${quoteId}`, {
+      const res = await fetch(`${API_BASE_URL}/provider/tech/quotes/${quoteId}`, {
         headers: headers(),
       });
       const data = await res.json();
@@ -138,7 +138,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
       let knownQuoteId = quoteMapRef.current[jobId];
 
       if (!knownQuoteId) {
-        const res = await fetch(`${API_BASE_URL}/provider/jobs/${jobId}/quotes`, {
+        const res = await fetch(`${API_BASE_URL}/provider/tech/jobs/${jobId}/quotes`, {
           headers: headers(),
         });
         const data = await res.json();
@@ -146,7 +146,12 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
           setError(data?.message || "Failed to fetch quote for this job.", data?.error_code ?? null);
           return null;
         }
-        const qSummary = Array.isArray(data.data) ? data.data[0] : (data.data ?? data);
+        
+        // Handle paginated responses or direct list/object envelopes
+        const rawList = data.data?.results ?? data.results ?? data.data ?? data;
+        const quotesArray = Array.isArray(rawList) ? rawList : [];
+        const qSummary = quotesArray[0] || (!Array.isArray(rawList) && rawList?.id ? rawList : null);
+        
         if (qSummary && qSummary.id) {
           knownQuoteId = qSummary.id;
           quoteMapRef.current[jobId] = knownQuoteId;
@@ -154,7 +159,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
       }
 
       if (knownQuoteId) {
-        const res = await fetch(`${API_BASE_URL}/provider/quotes/${knownQuoteId}`, {
+        const res = await fetch(`${API_BASE_URL}/provider/tech/quotes/${knownQuoteId}`, {
           headers: headers(),
         });
         const data = await res.json();
@@ -167,7 +172,8 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
 
       setError("No quote found for this job.");
       return null;
-    } catch {
+    } catch (err) {
+      console.error("[fetchQuoteByJob] Error:", err);
       setError("Network error. Please try again.");
       return null;
     } finally {
@@ -189,7 +195,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
       };
       if (item.spare_part_id != null) payload.spare_part_id = item.spare_part_id;
 
-      const res = await fetch(`${API_BASE_URL}/provider/quotes/${quoteId}/items`, {
+      const res = await fetch(`${API_BASE_URL}/provider/tech/quotes/${quoteId}/items`, {
         method: "POST",
         headers: headers(),
         body: JSON.stringify(payload),
@@ -217,7 +223,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
   const removeItem = useCallback(async (quoteId: number, itemId: number): Promise<ApiResult> => {
     if (!accessToken) return { success: false, message: "Not authenticated." };
     try {
-      const res = await fetch(`${API_BASE_URL}/provider/quotes/${quoteId}/items/${itemId}`, {
+      const res = await fetch(`${API_BASE_URL}/provider/tech/quotes/${quoteId}/items/${itemId}`, {
         method: "DELETE",
         headers: headers(),
       });
@@ -241,7 +247,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
   const submitQuote = useCallback(async (quoteId: number): Promise<ApiResult> => {
     if (!accessToken) return { success: false, message: "Not authenticated." };
     try {
-      const res = await fetch(`${API_BASE_URL}/provider/quotes/${quoteId}/submit`, {
+      const res = await fetch(`${API_BASE_URL}/provider/tech/quotes/${quoteId}/submit`, {
         method: "POST",
         headers: headers(),
       });

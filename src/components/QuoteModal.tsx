@@ -1,6 +1,8 @@
 "use client";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuote, NewItemPayload, ItemType } from "../context/QuoteContext";
+import { useAuth, API_BASE_URL } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 import {
   X, Plus, Trash2, Wrench, Package, Send, Loader2,
   CheckCircle, AlertCircle, Hash, RotateCcw, Info,
@@ -13,6 +15,16 @@ interface QuoteModalProps {
 }
 
 type Step = "notes" | "items" | "submitted";
+
+interface InventoryItem {
+  id: number;
+  name: string;
+  price: number;           // parsed from string
+  available_quantity: number;  // from API: available_quantity
+  is_in_stock: boolean;    // from API: is_in_stock
+  description?: string;
+  low_stock_threshold: number;
+}
 
 const EMPTY_ITEM = {
   item_type: "PART" as ItemType,
@@ -71,6 +83,12 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
     createQuote, addItem, removeItem, submitQuote, clearQuote,
   } = useQuote();
 
+  const { accessToken, profile } = useAuth();
+  const { t } = useLanguage();
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [inventoryLoading, setInventoryLoading] = useState(false);
+  const [inventoryError, setInventoryError] = useState<string | null>(null);
+
   const [notes, setNotes] = useState("");
   const [step, setStep] = useState<Step>("notes");
   const [newItem, setNewItem] = useState({ ...EMPTY_ITEM });
@@ -79,6 +97,87 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<{ ok: boolean; msg: string } | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [showPartsDropdown, setShowPartsDropdown] = useState(false);
+
+  const fetchInventory = useCallback(async () => {
+    if (!accessToken) return;
+    setInventoryLoading(true);
+    setInventoryError(null);
+
+    const providerId = profile?.provider?.id;
+   
+    // ── Attempt 1: provider inventory (works if tech token has access) ──
+    try {
+      const url1 = `${API_BASE_URL}/provider/inventory/`;
+      const res1 = await fetch(url1, {
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      });
+      const body1 = await res1.json();
+
+      if (res1.ok) {
+        const raw = body1.data ?? body1;
+        const list: InventoryItem[] = Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.results)
+          ? raw.results
+          : [];
+        setInventoryItems(list);
+        setInventoryLoading(false);
+        return;
+      }
+      console.warn(`[Inventory] Attempt 1 failed: ${res1.status} — ${body1?.message ?? "unknown error"}`);
+    } catch (err) {
+      console.error("[Inventory] Attempt 1 network error:", err);
+    }
+
+    // ── Attempt 2: public spare-parts endpoint via provider ID ──
+    if (providerId) {
+      try {
+        const url2 = `${API_BASE_URL}/driver/providers/${providerId}/spare-parts`;
+        const res2 = await fetch(url2, {
+          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        });
+        const body2 = await res2.json();
+
+        if (res2.ok) {
+          const raw = body2.data ?? body2;
+          const list: InventoryItem[] = Array.isArray(raw)
+            ? raw
+            : Array.isArray(raw?.results)
+            ? raw.results
+            : [];
+          // normalise field names from API response
+          const normalised: InventoryItem[] = list.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            price: parseFloat(p.price ?? p.unit_price ?? "0"),
+            available_quantity: p.available_quantity ?? p.quantity ?? p.stock ?? 0,
+            is_in_stock: p.is_in_stock ?? ((p.available_quantity ?? p.quantity ?? 0) > 0),
+            description: p.description,
+            low_stock_threshold: p.low_stock_threshold ?? 5,
+          }));
+          setInventoryItems(normalised);
+          setInventoryLoading(false);
+          return;
+        }
+        console.warn(`[Inventory] Attempt 2 failed: ${res2.status} — ${body2?.message ?? "unknown"}`);
+      } catch (err) {
+        console.error("[Inventory] Attempt 2 network error:", err);
+      }
+    }
+
+    // Both attempts failed
+    const errMsg = "Could not load spare parts — parts can still be entered manually.";
+    console.error(`[Inventory] All attempts failed.`);
+    setInventoryError(errMsg);
+    setInventoryLoading(false);
+  }, [accessToken, profile]);
+
+  useEffect(() => {
+    if (step === "items") {
+      fetchInventory();
+    }
+  }, [step, fetchInventory]);
 
   const showToast = (ok: boolean, msg: string) => {
     setToast({ ok, msg });
@@ -171,7 +270,7 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
     <div className="fixed inset-0 z-50 flex items-end"
       style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}>
       <div className="w-full max-h-[92dvh] flex flex-col rounded-t-3xl animate-sheet-up overflow-hidden"
-        style={{ background: "#0f172a", border: "1px solid rgba(148,163,184,0.12)" }}>
+        style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}>
 
         {/* Drag handle */}
         <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
@@ -180,16 +279,16 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 flex-shrink-0"
-          style={{ borderBottom: "1px solid rgba(148,163,184,0.08)" }}>
+          style={{ borderBottom: "1px solid var(--border-subtle)" }}>
           <div>
-            <h3 className="text-lg font-black" style={{ color: "#f1f5f9" }}>
-              {step === "notes" && "New Quote"}
-              {step === "items" && "Add Line Items"}
-              {step === "submitted" && "Quote Sent! 🎉"}
+            <h3 className="text-lg font-black" style={{ color: "var(--text-primary)" }}>
+              {step === "notes" && t("New Spare Part Recommendation")}
+              {step === "items" && t("Add Line Items")}
+              {step === "submitted" && (t("Recommendation Sent!") + " 🎉")}
             </h3>
             {quote && (
               <p className="text-xs mt-0.5 font-mono" style={{ color: "#475569" }}>
-                Quote #{quote.id} ·{" "}
+                Recommendation #{quote.id} ·{" "}
                 <span style={{
                   color: quote.status === "SENT" ? "#fbbf24"
                     : quote.status === "DRAFT" ? "#60a5fa"
@@ -203,8 +302,8 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
           </div>
           <button onClick={onClose}
             className="w-8 h-8 rounded-full flex items-center justify-center"
-            style={{ background: "rgba(148,163,184,0.1)" }}>
-            <X className="w-4 h-4" style={{ color: "#94a3b8" }} />
+            style={{ background: "var(--border-subtle)" }}>
+            <X className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
           </button>
         </div>
 
@@ -223,14 +322,14 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
                 style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.2)" }}>
                 <Info className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: "#60a5fa" }} />
                 <p className="text-xs leading-relaxed" style={{ color: "#94a3b8" }}>
-                  Add diagnostic notes, then build your itemised quote with parts & labour. The driver will receive a push notification to approve.
+                  {t("Add diagnostic notes, then build your itemised recommendation with parts & labour. The driver will receive a push notification to approve.")}
                 </p>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-widest mb-2"
-                  style={{ color: "#475569" }}>
-                  Diagnostic Notes <span style={{ color: "#334155" }}>(optional)</span>
+                  style={{ color: "var(--text-muted)" }}>
+                  Diagnostic Notes <span style={{ color: "var(--text-muted)" }}>(optional)</span>
                 </label>
                 <textarea
                   rows={4}
@@ -239,9 +338,9 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
                   placeholder="e.g. Engine oil depleted. Full replacement needed."
                   className="w-full rounded-xl px-4 py-3 text-sm resize-none outline-none"
                   style={{
-                    background: "rgba(255,255,255,0.05)",
-                    border: "1px solid rgba(148,163,184,0.15)",
-                    color: "#f1f5f9",
+                    background: "var(--bg-glass)",
+                    border: "1px solid var(--border-subtle)",
+                    color: "var(--text-primary)",
                     caretColor: "#3b82f6",
                   }}
                 />
@@ -258,7 +357,7 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
                 }}>
                 {quoteLoading
                   ? <Loader2 className="w-5 h-5 animate-spin" />
-                  : <>Create Quote</>}
+                  : <>{t("Create Estimate")}</>}
               </button>
             </div>
           )}
@@ -271,7 +370,7 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
               <div className="rounded-2xl p-4 flex items-center justify-between"
                 style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.2)" }}>
                 <div>
-                  <p className="text-xs font-semibold" style={{ color: "#34d399" }}>Total Amount</p>
+                  <p className="text-xs font-semibold" style={{ color: "#34d399" }}>{t("Total Amount")}</p>
                   <p className="text-xs mt-0.5" style={{ color: "#475569" }}>
                     {quote.items.length} item{quote.items.length !== 1 ? "s" : ""}
                   </p>
@@ -284,12 +383,12 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
               {/* Existing items list */}
               {quote.items.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#475569" }}>
-                    Line Items ({quote.items.length})
+                  <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+                    {t("Line Items")} ({quote.items.length})
                   </p>
                   {quote.items.map(item => (
                     <div key={item.id} className="flex items-center gap-3 rounded-xl p-3"
-                      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(148,163,184,0.08)" }}>
+                      style={{ background: "var(--bg-card-hover)", border: "1px solid var(--border-subtle)" }}>
                       {/* Type icon */}
                       <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
                         style={{ background: item.item_type === "PART" ? "rgba(59,130,246,0.15)" : "rgba(249,115,22,0.15)" }}>
@@ -299,10 +398,10 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
                       </div>
                       {/* Details */}
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate" style={{ color: "#f1f5f9" }}>
+                        <p className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>
                           {item.description}
                         </p>
-                        <p className="text-xs" style={{ color: "#475569" }}>
+                        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
                           {item.quantity} × {parseFloat(item.unit_price).toLocaleString()} = {" "}
                           <span style={{ color: "#60a5fa" }}>
                             {parseFloat(item.line_total).toLocaleString()} ETB
@@ -330,8 +429,8 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
 
               {/* ── Add item form ────────────────────────────────────────── */}
               <div className="rounded-2xl p-4 space-y-3"
-                style={{ background: "rgba(20,28,46,0.9)", border: "1px solid rgba(148,163,184,0.1)" }}>
-                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#475569" }}>
+                style={{ background: "var(--bg-glass)", border: "1px solid var(--border-subtle)" }}>
+                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
                   Add Item
                 </p>
 
@@ -339,7 +438,7 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
                 <div className="flex gap-2">
                   {(["PART", "LABOR"] as ItemType[]).map(t => (
                     <button key={t}
-                      onClick={() => setNewItem(p => ({ ...p, item_type: t }))}
+                      onClick={() => setNewItem(p => ({ ...p, item_type: t, quantity: t === "LABOR" ? 1 : p.quantity }))}
                       className="flex-1 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all"
                       style={{
                         background: newItem.item_type === t
@@ -360,14 +459,14 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
 
                 {/* Description */}
                 <input
-                  placeholder="Description *"
+                  placeholder={t("Description *")}
                   value={newItem.description}
                   onChange={e => setNewItem(p => ({ ...p, description: e.target.value }))}
                   className="w-full px-4 py-3 rounded-xl text-sm outline-none"
                   style={{
-                    background: "rgba(255,255,255,0.05)",
-                    border: "1px solid rgba(148,163,184,0.12)",
-                    color: "#f1f5f9",
+                    background: "var(--bg-glass)",
+                    border: "1px solid var(--border-subtle)",
+                    color: "var(--text-primary)",
                     caretColor: "#3b82f6",
                   }}
                 />
@@ -376,62 +475,219 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
                 <div className="flex gap-3">
                   <input
                     type="number"
-                    placeholder="Qty"
+                    placeholder={t("Qty")}
                     min={1}
                     value={newItem.quantity}
                     onChange={e => setNewItem(p => ({ ...p, quantity: Math.max(1, parseInt(e.target.value) || 1) }))}
+                    disabled={newItem.item_type === "LABOR"}
                     className="w-20 px-3 py-3 rounded-xl text-sm text-center outline-none"
                     style={{
-                      background: "rgba(255,255,255,0.05)",
-                      border: "1px solid rgba(148,163,184,0.12)",
-                      color: "#f1f5f9",
+                      background: "var(--bg-glass)",
+                      border: "1px solid var(--border-subtle)",
+                      color: "var(--text-primary)",
                     }}
                   />
                   <input
                     type="number"
-                    placeholder="Unit price (ETB) *"
+                    placeholder={t("Unit price (ETB) *")}
                     min={0}
                     step="0.01"
                     value={newItem.unit_price}
                     onChange={e => setNewItem(p => ({ ...p, unit_price: e.target.value }))}
                     className="flex-1 px-4 py-3 rounded-xl text-sm outline-none"
                     style={{
-                      background: "rgba(255,255,255,0.05)",
-                      border: "1px solid rgba(148,163,184,0.12)",
-                      color: "#f1f5f9",
+                      background: "var(--bg-glass)",
+                      border: "1px solid var(--border-subtle)",
+                      color: "var(--text-primary)",
                       caretColor: "#3b82f6",
                     }}
                   />
                 </div>
 
-                {/* Spare Part ID (optional — links to inventory) */}
-                {newItem.item_type === "PART" && (
-                  <div className="relative">
-                    <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "#475569" }} />
-                    <input
-                      type="number"
-                      placeholder="Spare Part ID (optional — links to inventory)"
-                      min={1}
-                      value={newItem.spare_part_id}
-                      onChange={e => setNewItem(p => ({ ...p, spare_part_id: e.target.value }))}
-                      className="w-full pl-9 pr-4 py-3 rounded-xl text-sm outline-none"
-                      style={{
-                        background: "rgba(167,139,250,0.06)",
-                        border: "1px solid rgba(167,139,250,0.2)",
-                        color: "#c4b5fd",
-                        caretColor: "#a78bfa",
-                      }}
-                    />
-                  </div>
-                )}
+                {/* ── Spare Part Custom Picker ─────────────────────── */}
+                {newItem.item_type === "PART" && (() => {
+                  const selectedPart = inventoryItems.find(i => i.id.toString() === newItem.spare_part_id);
+                  return (
+                    <div className="space-y-2">
+                      <label className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#7c3aed" }}>
+                        Spare Part — links to inventory
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={() => !inventoryLoading && setShowPartsDropdown(v => !v)}
+                        className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm text-left"
+                        style={{
+                          background: "var(--bg-glass)",
+                          border: `1px solid ${inventoryError ? "rgba(239,68,68,0.3)" : showPartsDropdown ? "rgba(167,139,250,0.5)" : "var(--border-subtle)"}`,
+                          color: selectedPart ? "var(--text-primary)" : "var(--text-muted)",
+                        }}
+                      >
+                        <span className="truncate">
+                          {inventoryLoading
+                            ? "⏳ Loading parts…"
+                            : selectedPart
+                            ? selectedPart.name
+                            : inventoryError
+                            ? "⚠️ Could not load — enter manually"
+                            : inventoryItems.length === 0
+                            ? "No parts in inventory"
+                            : "Select spare part (optional)"}
+                        </span>
+                        <span className="ml-2 flex-shrink-0" style={{ color: "#7c3aed" }}>
+                          {inventoryLoading
+                            ? <Loader2 className="w-4 h-4 animate-spin" />
+                            : <span className="text-xs">{showPartsDropdown ? "▲" : "▼"}</span>}
+                        </span>
+                      </button>
+
+                      {/* Custom dropdown list */}
+                      {showPartsDropdown && !inventoryLoading && (
+                        <div
+                          className="rounded-xl overflow-hidden z-10"
+                          style={{
+                            border: "1px solid rgba(167,139,250,0.25)",
+                            background: "var(--bg-card)",
+                            maxHeight: 260,
+                            overflowY: "auto",
+                          }}
+                        >
+                          {/* Clear selection row */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNewItem(p => ({ ...p, spare_part_id: "", description: "", unit_price: "" }));
+                              setShowPartsDropdown(false);
+                            }}
+                            className="w-full flex items-center px-4 py-2.5 text-left text-xs"
+                            style={{ color: "#475569", borderBottom: "1px solid rgba(148,163,184,0.08)" }}
+                          >
+                            — No part selected (manual entry)
+                          </button>
+
+                          {inventoryItems.map(item => {
+                            const isSelected = item.id.toString() === newItem.spare_part_id;
+                            const outOfStock = !item.is_in_stock;
+                            const lowStock = item.is_in_stock && item.available_quantity <= item.low_stock_threshold;
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                disabled={outOfStock}
+                                onClick={() => {
+                                  if (outOfStock) return;
+                                  setNewItem(p => ({
+                                    ...p,
+                                    spare_part_id: item.id.toString(),
+                                    description: item.name,
+                                    unit_price: item.price.toString(),
+                                  }));
+                                  setShowPartsDropdown(false);
+                                }}
+                                className="w-full flex items-center justify-between px-4 py-3 text-left"
+                                style={{
+                                  borderBottom: "1px solid rgba(148,163,184,0.06)",
+                                  background: isSelected
+                                    ? "rgba(167,139,250,0.12)"
+                                    : outOfStock
+                                    ? "transparent"
+                                    : "transparent",
+                                  opacity: outOfStock ? 0.45 : 1,
+                                  cursor: outOfStock ? "not-allowed" : "pointer",
+                                }}
+                              >
+                                {/* Left: name */}
+                                <div className="flex-1 min-w-0 mr-3">
+                                  <p className="text-sm font-semibold truncate"
+                                    style={{ color: isSelected ? "#c4b5fd" : outOfStock ? "var(--text-muted)" : "var(--text-primary)" }}>
+                                    {item.name}
+                                  </p>
+                                  <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                                    {item.price.toLocaleString()} ETB per unit
+                                  </p>
+                                </div>
+
+                                {/* Right: stock badge */}
+                                <div className="flex-shrink-0 text-right">
+                                  <span
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold"
+                                    style={{
+                                      background: outOfStock
+                                        ? "rgba(239,68,68,0.12)"
+                                        : lowStock
+                                        ? "rgba(249,115,22,0.12)"
+                                        : "rgba(16,185,129,0.12)",
+                                      color: outOfStock ? "#f87171" : lowStock ? "#f97316" : "#34d399",
+                                    }}
+                                  >
+                                    {outOfStock ? "Out of stock" : `${item.available_quantity} left`}
+                                  </span>
+                                  {isSelected && (
+                                    <p className="text-xs mt-1" style={{ color: "#7c3aed" }}>✓ selected</p>
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Error notice */}
+                      {inventoryError && (
+                        <p className="text-xs flex items-start gap-1.5" style={{ color: "#f97316" }}>
+                          <Info className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                          {inventoryError}
+                        </p>
+                      )}
+
+                      {/* Selected part info strip */}
+                      {selectedPart && (
+                        <div className="flex items-center justify-between px-3 py-2 rounded-xl"
+                          style={{ background: "rgba(167,139,250,0.08)", border: "1px solid rgba(167,139,250,0.15)" }}>
+                          <p className="text-xs flex items-center gap-1.5" style={{ color: "#a78bfa" }}>
+                            <Info className="w-3 h-3" />
+                            Auto-deducted on driver approval
+                          </p>
+                          <span className="text-xs font-bold"
+                            style={{ color: selectedPart.available_quantity <= selectedPart.low_stock_threshold ? "#f97316" : "#34d399" }}>
+                            {selectedPart.available_quantity} in stock
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Stats row */}
+                      {!inventoryLoading && !inventoryError && inventoryItems.length > 0 && (
+                        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                          {inventoryItems.length} part{inventoryItems.length !== 1 ? "s" : ""} in warehouse
+                          {inventoryItems.filter(i => !i.is_in_stock).length > 0 &&
+                            <span style={{ color: "#ef4444" }}> · {inventoryItems.filter(i => !i.is_in_stock).length} out of stock</span>}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
+
+
 
                 {/* Spare part info hint */}
-                {newItem.item_type === "PART" && newItem.spare_part_id && (
-                  <p className="text-xs flex items-center gap-1.5" style={{ color: "#a78bfa" }}>
-                    <Info className="w-3 h-3" />
-                    Linked part will be auto-deducted from inventory when driver approves.
-                  </p>
-                )}
+                {newItem.item_type === "PART" && newItem.spare_part_id && (() => {
+                  const selected = inventoryItems.find(item => item.id.toString() === newItem.spare_part_id);
+                  return (
+                    <div className="space-y-1">
+                      <p className="text-xs flex items-center gap-1.5" style={{ color: "#a78bfa" }}>
+                        <Info className="w-3 h-3" />
+                        Linked part will be auto-deducted from inventory when driver approves.
+                      </p>
+                      {selected && (
+                        <p className="text-xs flex items-center gap-1" style={{ color: selected.available_quantity <= selected.low_stock_threshold ? "#f97316" : "#34d399" }}>
+                          Live Stock: <span className="font-bold">{selected.available_quantity} units</span> available
+                          {selected.available_quantity <= selected.low_stock_threshold && " ⚠️ Low Stock!"}
+                          {!selected.is_in_stock && " 🚫 Out of Stock!"}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Local form error */}
                 {localError && <ErrorBanner message={localError} code={quoteErrorCode} />}
@@ -463,24 +719,24 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
                 }}>
                 <CheckCircle className="w-12 h-12" style={{ color: "#10b981" }} />
               </div>
-              <h3 className="text-2xl font-black mb-2" style={{ color: "#f1f5f9" }}>Quote Sent!</h3>
-              <p className="text-sm mb-1" style={{ color: "#475569" }}>
-                The driver has been notified and is reviewing your quote.
+              <h3 className="text-2xl font-black mb-2" style={{ color: "var(--text-primary)" }}>{t("Recommendation Sent!")}</h3>
+              <p className="text-sm mb-1" style={{ color: "var(--text-muted)" }}>
+                {t("The driver has been notified and is reviewing your recommendation.")}
               </p>
-              <p className="text-xs font-mono" style={{ color: "#334155" }}>
-                Quote #{quote?.id} · Status: SENT
+              <p className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>
+                Recommendation #{quote?.id} · Status: SENT
               </p>
 
               {/* Summary */}
               {quote && quote.items.length > 0 && (
                 <div className="mt-6 rounded-2xl p-4 text-left space-y-2"
-                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(148,163,184,0.08)" }}>
-                  <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "#475569" }}>
-                    Quote Summary
+                  style={{ background: "var(--bg-glass)", border: "1px solid var(--border-subtle)" }}>
+                  <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--text-muted)" }}>
+                    {t("Recommendation Summary")}
                   </p>
                   {quote.items.map(item => (
                     <div key={item.id} className="flex justify-between items-center text-sm">
-                      <span className="truncate mr-2" style={{ color: "#94a3b8" }}>
+                      <span className="truncate mr-2" style={{ color: "var(--text-secondary)" }}>
                         {item.quantity}× {item.description}
                       </span>
                       <span className="font-mono flex-shrink-0" style={{ color: "#60a5fa" }}>
@@ -488,9 +744,9 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
                       </span>
                     </div>
                   ))}
-                  <div className="h-px mt-2" style={{ background: "rgba(148,163,184,0.1)" }} />
+                  <div className="h-px mt-2" style={{ background: "var(--border-subtle)" }} />
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-bold" style={{ color: "#f1f5f9" }}>Total</span>
+                    <span className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{t("Total")}</span>
                     <span className="font-black text-base" style={{ color: "#10b981" }}>
                       {total.toLocaleString("en-ET", { minimumFractionDigits: 2 })} ETB
                     </span>
@@ -504,7 +760,7 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
         {/* ── Footer: Submit button ─────────────────────────────────────────── */}
         {step === "items" && quote && (
           <div className="px-5 pb-6 pt-3 flex-shrink-0 space-y-3"
-            style={{ borderTop: "1px solid rgba(148,163,184,0.08)" }}>
+            style={{ borderTop: "1px solid var(--border-subtle)" }}>
 
             {/* Warn if no items yet */}
             {quote.items.length === 0 && (
@@ -512,7 +768,7 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
                 style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)" }}>
                 <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: "#fbbf24" }} />
                 <p className="text-xs" style={{ color: "#fbbf24" }}>
-                  Add at least one item before sending the quote.
+                  {t("Add at least one item before sending the recommendation.")}
                 </p>
               </div>
             )}
@@ -528,7 +784,7 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
               }}>
               {submitting
                 ? <Loader2 className="w-5 h-5 animate-spin" />
-                : <><Send className="w-5 h-5" /> Send Quote to Driver</>}
+                : <><Send className="w-5 h-5" /> {t("Send Recommendation to Driver")}</>}
             </button>
           </div>
         )}

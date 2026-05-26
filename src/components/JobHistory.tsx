@@ -12,7 +12,7 @@ function JobDetailModal({ job, onClose }: { job: Job; onClose: () => void }) {
   const isCompleted = job.status === "COMPLETED";
   const isCancelled = job.status === "CANCELLED";
 
-  const completedDate = job.completed_at
+  const completedDate = (job.completed_at && !isNaN(new Date(job.completed_at).getTime()))
     ? new Date(job.completed_at).toLocaleDateString("en-US", {
         month: "short", day: "numeric", year: "numeric",
         hour: "2-digit", minute: "2-digit"
@@ -23,11 +23,11 @@ function JobDetailModal({ job, onClose }: { job: Job; onClose: () => void }) {
     <div className="fixed inset-0 z-50 flex items-end animate-fade-in"
       style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}>
       <div className="w-full max-h-[90dvh] flex flex-col rounded-t-3xl animate-sheet-up overflow-hidden"
-        style={{ background: "#0f172a", border: "1px solid rgba(148,163,184,0.12)" }}>
+        style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}>
         
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 flex-shrink-0 border-b"
-          style={{ borderColor: "rgba(148,163,184,0.08)" }}>
+          style={{ borderColor: "var(--border-subtle)" }}>
           <div>
             <h3 className="text-lg font-black text-slate-100 flex items-center gap-2">
               <FileText className="w-5 h-5 text-blue-500" /> Job Detail
@@ -48,7 +48,7 @@ function JobDetailModal({ job, onClose }: { job: Job; onClose: () => void }) {
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           
           {/* Main info */}
-          <div className="rounded-xl p-4 space-y-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(148,163,184,0.08)" }}>
+          <div className="rounded-xl p-4 space-y-3" style={{ background: "var(--bg-card-hover)", border: "1px solid var(--border-subtle)" }}>
             <h4 className="text-base font-bold text-slate-200">{job.service_type || "Service Request"}</h4>
             
             {job.provider_name && (
@@ -125,12 +125,12 @@ function HistoryCard({ job, delay, onClick }: { job: Job; delay: number; onClick
   const isCompleted = job.status === "COMPLETED";
   const isCancelled = job.status === "CANCELLED";
 
-  const completedDate = job.completed_at
+  const completedDate = (job.completed_at && !isNaN(new Date(job.completed_at).getTime()))
     ? new Date(job.completed_at).toLocaleDateString("en-US", {
         month: "short", day: "numeric", year: "numeric",
       })
     : null;
-  const completedTime = job.completed_at
+  const completedTime = (job.completed_at && !isNaN(new Date(job.completed_at).getTime()))
     ? new Date(job.completed_at).toLocaleTimeString("en-US", {
         hour: "2-digit", minute: "2-digit",
       })
@@ -143,8 +143,8 @@ function HistoryCard({ job, delay, onClick }: { job: Job; delay: number; onClick
       onClick={onClick}
       className="w-full text-left rounded-2xl overflow-hidden animate-slide-up active:scale-[0.98] transition-transform"
       style={{
-        background: "rgba(20,28,46,0.92)",
-        border: `1px solid ${isCompleted ? "rgba(16,185,129,0.15)" : "rgba(148,163,184,0.08)"}`,
+        background: "var(--bg-glass)",
+        border: `1px solid ${isCompleted ? "rgba(16,185,129,0.15)" : "var(--border-subtle)"}`,
         animationDelay: `${delay}s`,
       }}
     >
@@ -165,7 +165,7 @@ function HistoryCard({ job, delay, onClick }: { job: Job; delay: number; onClick
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1">
-              <span className="text-base font-bold truncate" style={{ color: "#f1f5f9" }}>
+              <span className="text-base font-bold truncate" style={{ color: "var(--text-primary)" }}>
                 {job.service_type || "Service"}
               </span>
               <span
@@ -178,7 +178,7 @@ function HistoryCard({ job, delay, onClick }: { job: Job; delay: number; onClick
             </div>
 
             {/* Driver */}
-            <p className="flex items-center gap-1.5 text-sm" style={{ color: "#64748b" }}>
+            <p className="flex items-center gap-1.5 text-sm" style={{ color: "var(--text-muted)" }}>
               <User className="w-3.5 h-3.5 flex-shrink-0" />
               <span className="truncate">{job.driver?.name || "—"}</span>
             </p>
@@ -187,23 +187,23 @@ function HistoryCard({ job, delay, onClick }: { job: Job; delay: number; onClick
           {/* Right: price + date */}
           <div className="text-right flex-shrink-0">
             {hasAmount ? (
-              <p className="text-lg font-black" style={{ color: "#10b981" }}>
+              <p className="text-lg font-black" style={{ color: "var(--accent-green)" }}>
                 {parseFloat(job.final_price!).toLocaleString()}
                 <span className="text-xs font-medium ml-0.5">ETB</span>
               </p>
             ) : (
               <p className="text-xs font-medium px-2 py-1 rounded-lg"
-                style={{ background: "rgba(148,163,184,0.08)", color: "#475569" }}>
+                style={{ background: "var(--border-subtle)", color: "var(--text-muted)" }}>
                 No charge
               </p>
             )}
             {completedDate && (
-              <p className="text-xs font-semibold mt-1" style={{ color: "#475569" }}>
+              <p className="text-xs font-semibold mt-1" style={{ color: "var(--text-muted)" }}>
                 {completedDate}
               </p>
             )}
             {completedTime && (
-              <p className="text-xs" style={{ color: "#334155" }}>{completedTime}</p>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>{completedTime}</p>
             )}
           </div>
         </div>
@@ -232,15 +232,15 @@ export default function JobHistory() {
       <div
         className="sticky top-0 z-10 px-4 pt-4 pb-3"
         style={{
-          background: "rgba(10,15,30,0.95)",
+          background: "var(--bg-glass)",
           backdropFilter: "blur(20px)",
-          borderBottom: "1px solid rgba(148,163,184,0.06)",
+          borderBottom: "1px solid var(--border-subtle)",
         }}
       >
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-black" style={{ color: "#f1f5f9" }}>Job History</h2>
-            <p className="text-xs mt-0.5" style={{ color: "#475569" }}>
+            <h2 className="text-xl font-black" style={{ color: "var(--text-primary)" }}>Job History</h2>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
               {historyCount > 0
                 ? `${historyCount} completed job${historyCount !== 1 ? "s" : ""}`
                 : "Past completed & cancelled jobs"}
@@ -273,15 +273,15 @@ export default function JobHistory() {
               className="flex-1 rounded-xl px-3 py-2 flex items-center gap-2"
               style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.12)" }}
             >
-              <DollarSign className="w-4 h-4 flex-shrink-0" style={{ color: "#3b82f6" }} />
+              <DollarSign className="w-4 h-4 flex-shrink-0" style={{ color: "var(--accent-blue)" }} />
               <div>
-                <p className="text-xs font-black" style={{ color: "#60a5fa" }}>
+                <p className="text-xs font-black" style={{ color: "var(--accent-blue-light)" }}>
                   {history
                     .filter(j => j.final_price && parseFloat(j.final_price) > 0)
                     .reduce((s, j) => s + parseFloat(j.final_price!), 0)
                     .toLocaleString()} ETB
                 </p>
-                <p className="text-xs" style={{ color: "#334155" }}>Total Earned</p>
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>Total Earned</p>
               </div>
             </div>
           </div>
@@ -323,10 +323,10 @@ export default function JobHistory() {
               className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-5"
               style={{ background: "rgba(16,185,129,0.1)" }}
             >
-              <Clock className="w-10 h-10" style={{ color: "#10b981" }} />
+              <Clock className="w-10 h-10" style={{ color: "var(--accent-green)" }} />
             </div>
-            <h3 className="text-lg font-bold mb-2" style={{ color: "#f1f5f9" }}>No history yet</h3>
-            <p className="text-sm" style={{ color: "#475569" }}>
+            <h3 className="text-lg font-bold mb-2" style={{ color: "var(--text-primary)" }}>No history yet</h3>
+            <p className="text-sm" style={{ color: "var(--text-muted)" }}>
               Completed jobs will appear here.
             </p>
           </div>
@@ -361,7 +361,7 @@ export default function JobHistory() {
 
         {/* End of list */}
         {!historyNextPage && history.length > 0 && !historyLoading && (
-          <p className="text-center text-xs py-4" style={{ color: "#1e293b" }}>
+          <p className="text-center text-xs py-4" style={{ color: "var(--text-muted)" }}>
             — End of history —
           </p>
         )}

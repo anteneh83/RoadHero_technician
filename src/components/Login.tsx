@@ -1,12 +1,14 @@
 "use client";
 import { useState, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
-import { Wrench, Delete, Phone } from "lucide-react";
+import { useLanguage } from "../context/LanguageContext";
+import { Wrench, Delete, Phone, Globe } from "lucide-react";
 
 const KEYS = ["1","2","3","4","5","6","7","8","9","","0","⌫"];
 
 export default function Login() {
   const { login } = useAuth();
+  const { t, language, setLanguage } = useLanguage();
   const [phone, setPhone] = useState("");
   const [pin, setPin] = useState("");
   const [step, setStep] = useState<"phone" | "pin">("phone");
@@ -43,21 +45,33 @@ export default function Login() {
     const result = await login(phoneNumber, pinValue);
     setLoading(false);
     if (!result.success) {
-      setError(result.message || "Invalid PIN or phone number.");
+      setError(t("Invalid PIN or phone number."));
       triggerShake();
       setPin("");
     }
   };
 
   const handlePhoneNext = () => {
-    if (!phone.trim()) { setError("Please enter your phone number."); return; }
+    if (!phone.trim()) { setError(t("Please enter your phone number.")); return; }
     setError("");
     setStep("pin");
   };
 
   return (
     <div className="min-h-dvh flex flex-col items-center justify-center relative overflow-hidden"
-      style={{ background: "linear-gradient(145deg, #050a14 0%, #0a0f1e 50%, #0d1629 100%)" }}>
+      style={{ background: "var(--bg-primary)" }}>
+
+      {/* Language Toggle */}
+      <div className="absolute top-4 right-4 z-10">
+        <button
+          onClick={() => setLanguage(language === "en" ? "am" : "en")}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold uppercase transition-all"
+          style={{ background: "var(--bg-glass)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
+        >
+          <Globe className="w-3.5 h-3.5" />
+          {language === "en" ? "🇪🇹 AM" : "🇬🇧 EN"}
+        </button>
+      </div>
 
       {/* Animated background orbs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -84,16 +98,16 @@ export default function Login() {
             <div className="absolute -inset-1 rounded-2xl opacity-30 blur-md"
               style={{ background: "linear-gradient(135deg, #3b82f6, #1d4ed8)" }} />
           </div>
-          <h1 className="text-3xl font-black tracking-tight" style={{ color: "#f1f5f9" }}>RoadHero</h1>
-          <p className="text-sm font-medium mt-1" style={{ color: "#64748b" }}>Technician Portal</p>
+          <h1 className="text-3xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>{t("RoadHero")}</h1>
+          <p className="text-sm font-medium mt-1" style={{ color: "var(--text-muted)" }}>{t("Technician Portal")}</p>
         </div>
 
         {/* Phone Step */}
         {step === "phone" && (
           <div className="animate-scale-in">
-            <div className="rounded-2xl p-6 mb-4" style={{ background: "rgba(20,28,46,0.8)", border: "1px solid rgba(148,163,184,0.1)", backdropFilter: "blur(20px)" }}>
-              <h2 className="text-xl font-bold mb-1" style={{ color: "#f1f5f9" }}>Welcome back</h2>
-              <p className="text-sm mb-6" style={{ color: "#64748b" }}>Enter your phone number to continue</p>
+            <div className="rounded-2xl p-6 mb-4" style={{ background: "var(--bg-glass)", border: "1px solid var(--border-subtle)", backdropFilter: "blur(20px)" }}>
+              <h2 className="text-xl font-bold mb-1" style={{ color: "var(--text-primary)" }}>{t("Welcome back")}</h2>
+              <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>{t("Enter your phone number to continue")}</p>
 
               <div className="relative">
                 <div className="absolute inset-y-0 left-4 flex items-center">
@@ -107,9 +121,9 @@ export default function Login() {
                   placeholder="+251911888999"
                   className="w-full pl-12 pr-4 py-4 rounded-xl text-base font-medium outline-none transition-all"
                   style={{
-                    background: "rgba(255,255,255,0.05)",
-                    border: "1px solid rgba(148,163,184,0.15)",
-                    color: "#f1f5f9",
+                    background: "var(--bg-card)",
+                    border: "1px solid var(--border-subtle)",
+                    color: "var(--text-primary)",
                     caretColor: "#3b82f6",
                   }}
                   autoFocus
@@ -125,7 +139,7 @@ export default function Login() {
                 className="w-full mt-5 py-4 rounded-xl text-base font-bold transition-all active:scale-95"
                 style={{ background: "linear-gradient(135deg, #3b82f6, #1d4ed8)", color: "#fff", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}
               >
-                Continue
+                {t("Continue")}
               </button>
             </div>
           </div>
@@ -134,7 +148,7 @@ export default function Login() {
         {/* PIN Step */}
         {step === "pin" && (
           <div className="animate-scale-in">
-            <div className="rounded-2xl p-6" style={{ background: "rgba(20,28,46,0.8)", border: "1px solid rgba(148,163,184,0.1)", backdropFilter: "blur(20px)" }}>
+            <div className="rounded-2xl p-6" style={{ background: "var(--bg-glass)", border: "1px solid var(--border-subtle)", backdropFilter: "blur(20px)" }}>
               <button
                 onClick={() => { setStep("phone"); setPin(""); setError(""); }}
                 className="text-sm font-medium mb-5 flex items-center gap-1 transition-opacity hover:opacity-70"
@@ -142,8 +156,8 @@ export default function Login() {
               >
                 ← {phone}
               </button>
-              <h2 className="text-xl font-bold mb-1" style={{ color: "#f1f5f9" }}>Enter your PIN</h2>
-              <p className="text-sm mb-8" style={{ color: "#64748b" }}>6-digit PIN sent by your provider</p>
+              <h2 className="text-xl font-bold mb-1" style={{ color: "var(--text-primary)" }}>{t("Enter your PIN")}</h2>
+              <p className="text-sm mb-8" style={{ color: "var(--text-muted)" }}>{t("6-digit PIN sent by your provider")}</p>
 
               {/* PIN Dots */}
               <div className={`flex justify-center gap-3 sm:gap-4 mb-8 ${shake ? "animate-shake" : ""}`}>
@@ -179,7 +193,7 @@ export default function Login() {
                       className={`pin-key ${key === "" ? "opacity-0 pointer-events-none" : ""}`}
                     >
                       {key === "⌫"
-                        ? <Delete className="w-6 h-6" style={{ color: "#94a3b8" }} />
+                        ? <Delete className="w-6 h-6" style={{ color: "var(--text-secondary)" }} />
                         : key}
                     </button>
                   ))}
@@ -189,8 +203,8 @@ export default function Login() {
           </div>
         )}
 
-        <p className="text-center text-xs mt-6" style={{ color: "#334155" }}>
-          Secured by RoadHero · Technician Access Only
+        <p className="text-center text-xs mt-6" style={{ color: "var(--text-muted)" }}>
+          {t("Secured by RoadHero · Technician Access Only")}
         </p>
       </div>
     </div>

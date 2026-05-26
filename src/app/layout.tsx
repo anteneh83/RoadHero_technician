@@ -3,10 +3,11 @@ import "./globals.css";
 import { AuthProvider } from "../context/AuthContext";
 import { JobsProvider } from "../context/JobsContext";
 import { QuoteProvider } from "../context/QuoteContext";
-
+import { LanguageProvider } from "../context/LanguageContext";
+import { ThemeProvider } from "../context/ThemeContext";
 export const metadata: Metadata = {
   title: "RoadHero | Technician Portal",
-  description: "RoadHero Technician mobile portal — manage jobs, update statuses, and create service quotes.",
+  description: "RoadHero Technician mobile portal — manage jobs, update statuses, and create spare part recommendations.",
   applicationName: "RoadHero Tech",
   appleWebApp: {
     capable: true,
@@ -29,15 +30,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
-      <body>
-        <AuthProvider>
-          <JobsProvider>
-            <QuoteProvider>
-              {children}
-            </QuoteProvider>
-          </JobsProvider>
-        </AuthProvider>
+    <html lang="en" suppressHydrationWarning>
+      <head suppressHydrationWarning />
+      <body suppressHydrationWarning>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AuthProvider>
+              <JobsProvider>
+                <QuoteProvider>
+                   {children}
+                </QuoteProvider>
+              </JobsProvider>
+            </AuthProvider>
+          </LanguageProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

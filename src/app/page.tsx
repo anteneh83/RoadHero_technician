@@ -1,9 +1,12 @@
 "use client";
+import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 import Login from "../components/Login";
 import Dashboard from "../components/Dashboard";
 
 function TechnicianLoader() {
+  const { t } = useLanguage();
   return (
     <div style={{
       position: "fixed",
@@ -85,7 +88,7 @@ function TechnicianLoader() {
           marginBottom: 6,
           opacity: 0.9,
         }}>
-          RoadHero
+          {t("RoadHero")}
         </div>
         <div style={{
           fontSize: 20,
@@ -93,7 +96,7 @@ function TechnicianLoader() {
           color: "var(--text-primary)",
           letterSpacing: "-0.01em",
         }}>
-          Technician Portal
+          {t("Technician Portal")}
         </div>
       </div>
 
@@ -104,7 +107,7 @@ function TechnicianLoader() {
         marginBottom: 36,
         letterSpacing: "0.01em",
       }}>
-        Authenticating your session…
+        {t("Authenticating your session…")}
       </div>
 
       {/* Bouncing dots */}
@@ -153,9 +156,18 @@ function TechnicianLoader() {
 
 export default function Home() {
   const { isAuthenticated, loading } = useAuth();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Return null on the server / before client mount so the server-rendered
+  // HTML is always an empty shell — preventing hydration mismatches caused
+  // by auth state being read from localStorage (client-only).
+  if (!mounted) return <main suppressHydrationWarning />;
 
   if (loading) return <TechnicianLoader />;
 
   return isAuthenticated ? <Dashboard /> : <Login />;
 }
-

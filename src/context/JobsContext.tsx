@@ -190,7 +190,7 @@ export function JobsProvider({ children }: { children: ReactNode }) {
       } else {
         setHistory(prev => [...prev, ...results]);
       }
-      setHistoryCount(inner?.count ?? results.length);
+      setHistoryCount(inner?.total_completed ?? inner?.count ?? results.length);
       setHistoryNextPage(inner?.next ?? null);
     } catch {
       setHistoryError("Unable to connect to server. Please try again.");

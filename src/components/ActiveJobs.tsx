@@ -121,14 +121,14 @@ function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: num
 
   return (
     <div className="rounded-2xl overflow-hidden animate-slide-up"
-      style={{ background: "rgba(20,28,46,0.95)", border: "1px solid rgba(148,163,184,0.1)" }}>
+      style={{ background: "var(--bg-glass)", border: "1px solid var(--border-subtle)" }}>
 
       {/* Card header — always visible */}
       <button className="w-full text-left p-4" onClick={() => setExpanded(e => !e)}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <span className="text-base font-black truncate" style={{ color: "#f1f5f9" }}>
+              <span className="text-base font-black truncate" style={{ color: "var(--text-primary)" }}>
                 {job.service_type || "Service Request"}
               </span>
               <StatusChip status={job.status} />
@@ -139,8 +139,8 @@ function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: num
                 </span>
               )}
             </div>
-            <p className="flex items-center gap-1.5 text-sm" style={{ color: "#64748b" }}>
-              <span style={{ color: "#94a3b8" }}>{job.driver?.name || "—"}</span>
+            <p className="flex items-center gap-1.5 text-sm" style={{ color: "var(--text-muted)" }}>
+              <span style={{ color: "var(--text-secondary)" }}>{job.driver?.name || "—"}</span>
               {job.eta_minutes != null && (
                 <span className="ml-2 text-xs px-2 py-0.5 rounded-full"
                   style={{ background: "rgba(6,182,212,0.1)", color: "#22d3ee", border: "1px solid rgba(6,182,212,0.2)" }}>
@@ -149,22 +149,22 @@ function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: num
               )}
             </p>
           </div>
-          <span className="text-lg flex-shrink-0" style={{ color: "#334155" }}>{expanded ? "▲" : "▼"}</span>
+          <span className="text-lg flex-shrink-0" style={{ color: "var(--text-muted)" }}>{expanded ? "▲" : "▼"}</span>
         </div>
       </button>
 
       {/* Expanded detail */}
       {expanded && (
         <div className="px-4 pb-4 space-y-3 animate-fade-in">
-          <div className="h-px" style={{ background: "rgba(148,163,184,0.08)" }} />
+          <div className="h-px" style={{ background: "var(--border-subtle)" }} />
 
           {/* Info rows */}
           <div className="space-y-2">
 
             {job.provider_name && (
-              <p className="flex items-center gap-2 text-sm" style={{ color: "#94a3b8" }}>
-                <Building2 className="w-4 h-4 flex-shrink-0" style={{ color: "#a78bfa" }} />
-                <span style={{ color: "#cbd5e1" }}>{job.provider_name}</span>
+              <p className="flex items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+                <Building2 className="w-4 h-4 flex-shrink-0" style={{ color: "var(--accent-purple)" }} />
+                <span style={{ color: "var(--text-primary)" }}>{job.provider_name}</span>
               </p>
             )}
 
@@ -174,12 +174,12 @@ function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: num
                 style={{ color: "#3b82f6" }}>
                 <Phone className="w-4 h-4 flex-shrink-0" />
                 {job.driver.phone}
-                <span className="text-xs" style={{ color: "#334155" }}>· Tap to call</span>
+                <span className="text-xs" style={{ color: "var(--text-muted)" }}>· Tap to call</span>
               </a>
             )}
 
             {job.incident_location?.address && (
-              <p className="flex items-center gap-2 text-sm" style={{ color: "#94a3b8" }}>
+              <p className="flex items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
                 <MapPin className="w-4 h-4 flex-shrink-0" style={{ color: "#f97316" }} />
                 {job.incident_location.address}
               </p>
@@ -194,7 +194,7 @@ function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: num
             )}
 
             {job.vehicle && (
-              <p className="flex items-center gap-2 text-sm" style={{ color: "#94a3b8" }}>
+              <p className="flex items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
                 <Car className="w-4 h-4 flex-shrink-0" style={{ color: "#3b82f6" }} />
                 {[job.vehicle.year, job.vehicle.make, job.vehicle.model].filter(Boolean).join(" ") || "—"}
                 {job.vehicle.plate && (
@@ -214,14 +214,14 @@ function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: num
             )}
 
             {job.accepted_at && (
-              <p className="flex items-center gap-2 text-xs" style={{ color: "#475569" }}>
+              <p className="flex items-center gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
                 <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" />
                 Accepted: {new Date(job.accepted_at).toLocaleString()}
               </p>
             )}
 
             {job.created_at && (
-              <p className="flex items-center gap-2 text-xs" style={{ color: "#475569" }}>
+              <p className="flex items-center gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
                 <Clock className="w-3.5 h-3.5 flex-shrink-0" />
                 Created: {new Date(job.created_at).toLocaleString()}
               </p>
@@ -235,18 +235,18 @@ function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: num
             const spareParts = parts[1]?.trim();
             return (
               <div className="rounded-xl p-3 space-y-2"
-                style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(148,163,184,0.08)" }}>
+                style={{ background: "var(--bg-card-hover)", border: "1px solid var(--border-subtle)" }}>
                 {notes && (
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "#475569" }}>
+                    <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-muted)" }}>
                       <FileText className="w-3 h-3 inline mr-1" />Problem Description
                     </p>
-                    <p className="text-sm whitespace-pre-wrap" style={{ color: "#94a3b8" }}>{notes}</p>
+                    <p className="text-sm whitespace-pre-wrap" style={{ color: "var(--text-secondary)" }}>{notes}</p>
                   </div>
                 )}
                 {spareParts && (
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "#475569" }}>
+                    <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-muted)" }}>
                       <Wrench className="w-3 h-3 inline mr-1" />Requested Spare Parts
                     </p>
                     <p className="text-sm whitespace-pre-wrap font-mono" style={{ color: "#fbbf24" }}>{spareParts}</p>
@@ -302,13 +302,13 @@ function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: num
               <p className="text-sm font-semibold" style={{ color: "#34d399" }}>
                 ✅ Confirm job completion?
               </p>
-              <p className="text-xs" style={{ color: "#475569" }}>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
                 This will notify the driver and cannot be undone.
               </p>
               <div className="flex gap-2">
                 <button onClick={() => setConfirmComplete(false)}
                   className="flex-1 py-2.5 rounded-xl text-sm font-bold"
-                  style={{ background: "rgba(148,163,184,0.1)", color: "#64748b" }}>
+                  style={{ background: "var(--border-subtle)", color: "var(--text-muted)" }}>
                   Cancel
                 </button>
                 <button onClick={() => handleAction("COMPLETED", "Complete Job ✓")}
@@ -364,13 +364,13 @@ export default function ActiveJobs() {
     <div className="min-h-full pb-8">
       {/* Sticky header */}
       <div className="sticky top-0 z-10 px-4 pt-4 pb-3"
-        style={{ background: "rgba(10,15,30,0.95)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(148,163,184,0.06)" }}>
+        style={{ background: "var(--bg-glass)", backdropFilter: "blur(20px)", borderBottom: "1px solid var(--border-subtle)" }}>
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h2 className="text-xl font-black" style={{ color: "#f1f5f9" }}>Active Jobs</h2>
-            <p className="text-xs mt-0.5" style={{ color: "#475569" }}>
+            <h2 className="text-xl font-black" style={{ color: "var(--text-primary)" }}>Active Jobs</h2>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
               {jobs.length} job{jobs.length !== 1 ? "s" : ""} assigned
-              <span className="ml-2 text-xs" style={{ color: "#1e293b" }}>· auto-refreshes every 30s</span>
+              <span className="ml-2 text-xs" style={{ color: "var(--text-muted)" }}>· auto-refreshes every 30s</span>
             </p>
           </div>
           <button onClick={fetchJobs} disabled={loading}
@@ -386,9 +386,9 @@ export default function ActiveJobs() {
             <button key={f.value} onClick={() => setFilter(f.value)}
               className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
               style={{
-                background: filter === f.value ? "rgba(59,130,246,0.25)" : "rgba(255,255,255,0.05)",
-                border: `1px solid ${filter === f.value ? "rgba(59,130,246,0.5)" : "rgba(148,163,184,0.1)"}`,
-                color: filter === f.value ? "#60a5fa" : "#64748b",
+                background: filter === f.value ? "rgba(59,130,246,0.25)" : "var(--bg-card-hover)",
+                border: `1px solid ${filter === f.value ? "rgba(59,130,246,0.5)" : "var(--border-subtle)"}`,
+                color: filter === f.value ? "#60a5fa" : "var(--text-muted)",
               }}>
               {f.label}
             </button>
@@ -413,10 +413,10 @@ export default function ActiveJobs() {
               style={{ background: "rgba(59,130,246,0.1)" }}>
               <Briefcase className="w-10 h-10" style={{ color: "#3b82f6" }} />
             </div>
-            <h3 className="text-lg font-bold mb-2" style={{ color: "#f1f5f9" }}>
+            <h3 className="text-lg font-bold mb-2" style={{ color: "var(--text-primary)" }}>
               {filter === "ALL" ? "No active jobs" : `No ${filter.replace(/_/g, " ")} jobs`}
             </h3>
-            <p className="text-sm" style={{ color: "#475569" }}>
+            <p className="text-sm" style={{ color: "var(--text-muted)" }}>
               {filter === "ALL"
                 ? "Waiting for assignment… refreshing every 30s."
                 : "Try a different filter."}
