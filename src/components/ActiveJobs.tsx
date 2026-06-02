@@ -9,6 +9,7 @@ import {
 import QuoteModal from "./QuoteModal";
 import QuoteDetailModal from "./QuoteDetailModal";
 import JobMap from "./JobMap";
+import { useLanguage } from "../context/LanguageContext";
 
 // ─── Status filter tabs ───────────────────────────────────────────────────────
 const STATUS_FILTERS: { label: string; value: JobStatus | "ALL" }[] = [
@@ -45,13 +46,14 @@ const NEXT_ACTIONS: Partial<Record<JobStatus, { label: string; next: JobStatus; 
 
 // ─── StatusChip ──────────────────────────────────────────────────────────────
 function StatusChip({ status }: { status: string }) {
+  const { t } = useLanguage();
   const meta = STATUS_META[status] || { label: status, cls: "", icon: Clock };
   const Icon = meta.icon;
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${meta.cls}`}>
       {meta.pulse && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />}
       <Icon className="w-3 h-3" />
-      {meta.label}
+      {t(meta.label as any)}
     </span>
   );
 }
@@ -68,6 +70,7 @@ function openNavigation(lat?: number, lng?: number, address?: string) {
 // ─── JobCard ──────────────────────────────────────────────────────────────────
 function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: number) => void; onViewQuote: (jobId: number) => void }) {
   const { updateJobStatus, fetchJobs } = useJobs();
+  const { t, language } = useLanguage();
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [toast, setToast] = useState<{ ok: boolean; msg: string } | null>(null);
   const [expanded, setExpanded] = useState(false);
@@ -90,25 +93,25 @@ function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: num
     setActionLoading(null);
     if (result.success) {
       const msg = next === "EN_ROUTE"
-        ? "Status updated — you're now En Route 🚗"
+        ? t("Status updated — you're now En Route 🚗")
         : next === "ARRIVED"
-        ? "Marked as Arrived ✓"
+        ? t("Marked as Arrived ✓")
         : next === "IN_PROGRESS"
-        ? "Work started ⚙️"
+        ? t("Work started ⚙️")
         : next === "COMPLETED"
-        ? "Job completed! 🎉"
-        : `Status → ${next.replace(/_/g, " ")}`;
+        ? t("Job completed! 🎉")
+        : `${t("Status →")} ${next.replace(/_/g, " ")}`;
       setToast({ ok: true, msg });
       await fetchJobs();
     } else {
-      setToast({ ok: false, msg: result.message || "Failed to update status." });
+      setToast({ ok: false, msg: result.message ? t(result.message as any) : t("Failed to update status.") });
     }
     setTimeout(() => setToast(null), 4000);
-  }, [job.id, updateJobStatus, fetchJobs, confirmComplete]);
+  }, [job.id, updateJobStatus, fetchJobs, confirmComplete, t]);
 
   const handleNavigate = () => {
     if (job.incident_location?.lat == null && !job.incident_location?.address) {
-      setToast({ ok: false, msg: "No location provided for this job." });
+      setToast({ ok: false, msg: t("No location provided for this job.") });
       setTimeout(() => setToast(null), 4000);
       return;
     }
@@ -129,13 +132,13 @@ function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: num
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className="text-base font-black truncate" style={{ color: "var(--text-primary)" }}>
-                {job.service_type || "Service Request"}
+                {job.service_type ? t(job.service_type as any) : t("Service Request")}
               </span>
               <StatusChip status={job.status} />
               {job.is_scheduled && (
                 <span className="px-2 py-0.5 rounded-full text-xs font-semibold"
                   style={{ background: "rgba(168,85,247,0.15)", color: "#c084fc", border: "1px solid rgba(168,85,247,0.3)" }}>
-                  📅 Scheduled
+                  📅 {t("Scheduled")}
                 </span>
               )}
             </div>
@@ -144,7 +147,7 @@ function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: num
               {job.eta_minutes != null && (
                 <span className="ml-2 text-xs px-2 py-0.5 rounded-full"
                   style={{ background: "rgba(6,182,212,0.1)", color: "#22d3ee", border: "1px solid rgba(6,182,212,0.2)" }}>
-                  ETA {job.eta_minutes} min
+                  {t("ETA")} {job.eta_minutes} {t("min")}
                 </span>
               )}
             </p>
@@ -174,7 +177,7 @@ function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: num
                 style={{ color: "#3b82f6" }}>
                 <Phone className="w-4 h-4 flex-shrink-0" />
                 {job.driver.phone}
-                <span className="text-xs" style={{ color: "var(--text-muted)" }}>· Tap to call</span>
+                <span className="text-xs" style={{ color: "var(--text-muted)" }}>· {t("Tap to call")}</span>
               </a>
             )}
 
@@ -209,21 +212,21 @@ function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: num
             {job.scheduled_time && (
               <p className="flex items-center gap-2 text-xs" style={{ color: "#a78bfa" }}>
                 <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
-                Scheduled: {new Date(job.scheduled_time).toLocaleString()}
+                {t("Scheduled")}: {new Date(job.scheduled_time).toLocaleString(language === "am" ? "am-ET" : "en-US")}
               </p>
             )}
 
             {job.accepted_at && (
               <p className="flex items-center gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
                 <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                Accepted: {new Date(job.accepted_at).toLocaleString()}
+                {t("Accepted")}: {new Date(job.accepted_at).toLocaleString(language === "am" ? "am-ET" : "en-US")}
               </p>
             )}
 
             {job.created_at && (
               <p className="flex items-center gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
                 <Clock className="w-3.5 h-3.5 flex-shrink-0" />
-                Created: {new Date(job.created_at).toLocaleString()}
+                {t("Created")}: {new Date(job.created_at).toLocaleString(language === "am" ? "am-ET" : "en-US")}
               </p>
             )}
           </div>
@@ -239,7 +242,7 @@ function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: num
                 {notes && (
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-muted)" }}>
-                      <FileText className="w-3 h-3 inline mr-1" />Problem Description
+                      <FileText className="w-3 h-3 inline mr-1" />{t("Problem Description")}
                     </p>
                     <p className="text-sm whitespace-pre-wrap" style={{ color: "var(--text-secondary)" }}>{notes}</p>
                   </div>
@@ -247,7 +250,7 @@ function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: num
                 {spareParts && (
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-muted)" }}>
-                      <Wrench className="w-3 h-3 inline mr-1" />Requested Spare Parts
+                      <Wrench className="w-3 h-3 inline mr-1" />{t("Requested Spare Parts")}
                     </p>
                     <p className="text-sm whitespace-pre-wrap font-mono" style={{ color: "#fbbf24" }}>{spareParts}</p>
                   </div>
@@ -262,7 +265,7 @@ function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: num
               className="w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95"
               style={{ background: "rgba(6,182,212,0.15)", border: "1px solid rgba(6,182,212,0.3)", color: "#22d3ee" }}>
               <Navigation className="w-4 h-4" />
-              {job.status === "ACCEPTED" ? "Navigate & Mark En Route" : "Open Navigation"}
+              {job.status === "ACCEPTED" ? t("Navigate & Mark En Route") : t("Open Navigation")}
             </button>
           )}
 
@@ -270,7 +273,7 @@ function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: num
           {job.status === "QUOTE_PENDING" && (
             <div className="rounded-xl px-4 py-3 text-sm font-medium"
               style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.2)", color: "#fbbf24" }}>
-              ⏳ Waiting for driver to approve your quote.
+              ⏳ {t("Waiting for driver to approve your estimate.")}
             </div>
           )}
 
@@ -279,7 +282,7 @@ function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: num
             <button onClick={() => onViewQuote(job.id)}
               className="w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95"
               style={{ background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.2)", color: "#60a5fa" }}>
-              <FileText className="w-4 h-4" /> View Sent Quote
+              <FileText className="w-4 h-4" /> {t("View Sent Recommendation")}
             </button>
           )}
 
@@ -300,22 +303,22 @@ function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: num
             <div className="rounded-xl px-4 py-3 space-y-3"
               style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)" }}>
               <p className="text-sm font-semibold" style={{ color: "#34d399" }}>
-                ✅ Confirm job completion?
+                ✅ {t("Confirm job completion?")}
               </p>
               <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                This will notify the driver and cannot be undone.
+                {t("This will notify the driver and cannot be undone.")}
               </p>
               <div className="flex gap-2">
                 <button onClick={() => setConfirmComplete(false)}
                   className="flex-1 py-2.5 rounded-xl text-sm font-bold"
                   style={{ background: "var(--border-subtle)", color: "var(--text-muted)" }}>
-                  Cancel
+                  {t("Cancel")}
                 </button>
                 <button onClick={() => handleAction("COMPLETED", "Complete Job ✓")}
                   disabled={!!actionLoading}
                   className="flex-1 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-1 disabled:opacity-50"
                   style={{ background: "rgba(16,185,129,0.2)", border: "1px solid rgba(16,185,129,0.4)", color: "#10b981" }}>
-                  {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Yes, Complete"}
+                  {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : t("Yes, Complete")}
                 </button>
               </div>
             </div>
@@ -329,7 +332,7 @@ function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: num
               style={{
                 background: `${a.color}22`, border: `1px solid ${a.color}44`, color: a.color
               }}>
-              {actionLoading === a.label ? <Loader2 className="w-4 h-4 animate-spin" /> : a.label}
+              {actionLoading === a.label ? <Loader2 className="w-4 h-4 animate-spin" /> : t(a.label as any)}
             </button>
           ))}
 
@@ -342,7 +345,7 @@ function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: num
                 color: "#fff",
                 boxShadow: "0 4px 16px rgba(249,115,22,0.3)",
               }}>
-              <DollarSign className="w-4 h-4" /> Create & Send Quote
+              <DollarSign className="w-4 h-4" /> {t("Create & Send Spare Part Recommendation")}
             </button>
           )}
         </div>
@@ -354,6 +357,7 @@ function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: num
 // ─── ActiveJobs (main view) ───────────────────────────────────────────────────
 export default function ActiveJobs() {
   const { jobs, loading, fetchJobs, updateJobStatus } = useJobs();
+  const { t, language } = useLanguage();
   const [filter, setFilter] = useState<JobStatus | "ALL">("ALL");
   const [quoteJobId, setQuoteJobId] = useState<number | null>(null);
   const [viewQuoteJobId, setViewQuoteJobId] = useState<number | null>(null);
@@ -367,10 +371,10 @@ export default function ActiveJobs() {
         style={{ background: "var(--bg-glass)", backdropFilter: "blur(20px)", borderBottom: "1px solid var(--border-subtle)" }}>
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h2 className="text-xl font-black" style={{ color: "var(--text-primary)" }}>Active Jobs</h2>
+            <h2 className="text-xl font-black" style={{ color: "var(--text-primary)" }}>{t("Active Jobs")}</h2>
             <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-              {jobs.length} job{jobs.length !== 1 ? "s" : ""} assigned
-              <span className="ml-2 text-xs" style={{ color: "var(--text-muted)" }}>· auto-refreshes every 30s</span>
+              {language === "en" ? `${jobs.length} job${jobs.length !== 1 ? "s" : ""} assigned` : `${jobs.length} ስራ ተመድቧል`}
+              <span className="ml-2 text-xs" style={{ color: "var(--text-muted)" }}>· {t("auto-refreshes every 30s")}</span>
             </p>
           </div>
           <button onClick={fetchJobs} disabled={loading}
@@ -390,7 +394,7 @@ export default function ActiveJobs() {
                 border: `1px solid ${filter === f.value ? "rgba(59,130,246,0.5)" : "var(--border-subtle)"}`,
                 color: filter === f.value ? "#60a5fa" : "var(--text-muted)",
               }}>
-              {f.label}
+              {t(f.label as any)}
             </button>
           ))}
         </div>
@@ -414,12 +418,12 @@ export default function ActiveJobs() {
               <Briefcase className="w-10 h-10" style={{ color: "#3b82f6" }} />
             </div>
             <h3 className="text-lg font-bold mb-2" style={{ color: "var(--text-primary)" }}>
-              {filter === "ALL" ? "No active jobs" : `No ${filter.replace(/_/g, " ")} jobs`}
+              {filter === "ALL" ? t("No active jobs") : `${t("No jobs")} (${t(STATUS_META[filter]?.label as any)})`}
             </h3>
             <p className="text-sm" style={{ color: "var(--text-muted)" }}>
               {filter === "ALL"
-                ? "Waiting for assignment… refreshing every 30s."
-                : "Try a different filter."}
+                ? t("Waiting for assignment… refreshing every 30s.")
+                : t("Try a different filter.")}
             </p>
           </div>
         )}

@@ -1,9 +1,11 @@
 "use client";
 import { useAuth } from "../context/AuthContext";
 import { Wrench, Phone, Building2, Star, LogOut, ShieldCheck, ShieldX } from "lucide-react";
+import { useLanguage } from "../context/LanguageContext";
 
 export default function Profile() {
   const { profile, logout } = useAuth();
+  const { t } = useLanguage();
   if (!profile) return null;
 
   const initials = profile.full_name
@@ -44,7 +46,7 @@ export default function Profile() {
             <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-[#0a0f1e] ${profile.is_active ? "bg-emerald-400" : "bg-slate-500"}`} />
           </div>
 
-          <h2 className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>{profile.full_name || "Technician"}</h2>
+          <h2 className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>{profile.full_name || t("Technician")}</h2>
           <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>{profile.phone_number}</p>
 
           {/* Active status badge */}
@@ -55,7 +57,7 @@ export default function Profile() {
             }}>
             <div className={`w-2 h-2 rounded-full ${profile.is_active ? "bg-emerald-400 animate-pulse" : "bg-slate-500"}`} />
             <span className="text-xs font-semibold" style={{ color: profile.is_active ? "#34d399" : "var(--text-muted)" }}>
-              {profile.is_active ? "Active" : "Inactive"}
+              {profile.is_active ? t("Active") : t("Inactive")}
             </span>
           </div>
         </div>
@@ -70,7 +72,7 @@ export default function Profile() {
               style={{ background: "rgba(59,130,246,0.15)" }}>
               <Building2 className="w-5 h-5" style={{ color: "#3b82f6" }} />
             </div>
-            <span className="text-sm font-semibold uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>Provider</span>
+            <span className="text-sm font-semibold uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>{t("Provider")}</span>
           </div>
           <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
             {profile.provider?.name || "—"}
@@ -85,16 +87,16 @@ export default function Profile() {
               style={{ background: "rgba(249,115,22,0.15)" }}>
               <Wrench className="w-5 h-5" style={{ color: "#f97316" }} />
             </div>
-            <span className="text-sm font-semibold uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>Specialties</span>
+            <span className="text-sm font-semibold uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>{t("Specialties")}</span>
           </div>
           {(!profile.specialties || profile.specialties.length === 0)
-            ? <p className="text-sm" style={{ color: "var(--text-muted)" }}>No specialties listed.</p>
+            ? <p className="text-sm" style={{ color: "var(--text-muted)" }}>{t("No specialties listed.")}</p>
             : (
               <div className="flex flex-wrap gap-2">
                 {profile.specialties.map((s, i) => (
                   <span key={i} className="px-3 py-1.5 rounded-full text-sm font-semibold capitalize"
                     style={{ background: "rgba(249,115,22,0.12)", color: "#fb923c", border: "1px solid rgba(249,115,22,0.2)" }}>
-                    {s}
+                    {t(s as any)}
                   </span>
                 ))}
               </div>
@@ -111,7 +113,7 @@ export default function Profile() {
               <Star className="w-4 h-4" style={{ color: "#f59e0b" }} />
             </div>
             <p className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>{ratingDisplay}</p>
-            <p className="text-xs mt-1 font-medium" style={{ color: "var(--text-muted)" }}>Rating</p>
+            <p className="text-xs mt-1 font-medium" style={{ color: "var(--text-muted)" }}>{t("Rating")}</p>
           </div>
 
           {/* Status */}
@@ -123,9 +125,9 @@ export default function Profile() {
                 : <ShieldX className="w-4 h-4" style={{ color: "#ef4444" }} />}
             </div>
             <p className="text-2xl font-black" style={{ color: profile.is_active ? "#34d399" : "#f87171" }}>
-              {profile.is_active ? "Active" : "Inactive"}
+              {profile.is_active ? t("Active") : t("Inactive")}
             </p>
-            <p className="text-xs mt-1 font-medium" style={{ color: "var(--text-muted)" }}>Status</p>
+            <p className="text-xs mt-1 font-medium" style={{ color: "var(--text-muted)" }}>{t("Status")}</p>
           </div>
         </div>
 
@@ -133,7 +135,7 @@ export default function Profile() {
         <div className="rounded-2xl p-4 animate-slide-up" style={{ animationDelay: "0.12s", background: "var(--bg-glass)", border: "1px solid var(--border-subtle)" }}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-muted)" }}>Specialties</p>
+              <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-muted)" }}>{t("Specialties")}</p>
               <p className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>{profile.specialties?.length || 0}</p>
             </div>
             <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
@@ -150,7 +152,7 @@ export default function Profile() {
           style={{ animationDelay: "0.15s", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171" }}
         >
           <LogOut className="w-5 h-5" />
-          Sign Out
+          {t("Sign Out")}
         </button>
       </div>
     </div>

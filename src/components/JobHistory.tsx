@@ -1,19 +1,37 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useJobs, Job } from "../context/JobsContext";
+import { useJobs, Job, JobStatus } from "../context/JobsContext";
 import {
   Clock, CheckCircle, XCircle, Car, User,
   RefreshCw, ChevronDown, Loader2, FileText, DollarSign,
   MapPin, X, Navigation, Building2, Phone, Calendar
 } from "lucide-react";
+import { useLanguage } from "../context/LanguageContext";
+
+const STATUS_LABELS = {
+  ACCEPTED: "Accepted",
+  EN_ROUTE: "En Route",
+  ARRIVED: "Arrived",
+  DIAGNOSING: "Diagnosing",
+  QUOTE_PENDING: "Quote Pending",
+  QUOTE_ACCEPTED: "Quote Accepted",
+  IN_PROGRESS: "In Progress",
+  COMPLETED: "Completed",
+  CANCELLED: "Cancelled",
+} as const;
+
+function translateStatus(status: JobStatus, t: (key: any) => string) {
+  return t(STATUS_LABELS[status]);
+}
 
 // ─── Modal for Job Details ────────────────────────────────────────────────────
 function JobDetailModal({ job, onClose }: { job: Job; onClose: () => void }) {
+  const { t, language } = useLanguage();
   const isCompleted = job.status === "COMPLETED";
   const isCancelled = job.status === "CANCELLED";
 
   const completedDate = (job.completed_at && !isNaN(new Date(job.completed_at).getTime()))
-    ? new Date(job.completed_at).toLocaleDateString("en-US", {
+    ? new Date(job.completed_at).toLocaleDateString(language === "am" ? "am-ET" : "en-US", {
         month: "short", day: "numeric", year: "numeric",
         hour: "2-digit", minute: "2-digit"
       })
@@ -30,13 +48,13 @@ function JobDetailModal({ job, onClose }: { job: Job; onClose: () => void }) {
           style={{ borderColor: "var(--border-subtle)" }}>
           <div>
             <h3 className="text-lg font-black text-slate-100 flex items-center gap-2">
-              <FileText className="w-5 h-5 text-blue-500" /> Job Detail
+              <FileText className="w-5 h-5 text-blue-500" /> {t("Job Detail")}
             </h3>
             <p className="text-xs mt-1 font-mono text-slate-400">
-              Job #{job.id} · <span className={
+              {t("Job")} #{job.id} · <span className={
                 isCompleted ? "text-emerald-400" :
                 isCancelled ? "text-red-400" : "text-blue-400"
-              }>{job.status}</span>
+              }>{translateStatus(job.status, t)}</span>
             </p>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 active:scale-90">
@@ -49,7 +67,7 @@ function JobDetailModal({ job, onClose }: { job: Job; onClose: () => void }) {
           
           {/* Main info */}
           <div className="rounded-xl p-4 space-y-3" style={{ background: "var(--bg-card-hover)", border: "1px solid var(--border-subtle)" }}>
-            <h4 className="text-base font-bold text-slate-200">{job.service_type || "Service Request"}</h4>
+            <h4 className="text-base font-bold text-slate-200">{job.service_type ? t(job.service_type as any) : t("Service Request")}</h4>
             
             {job.provider_name && (
               <p className="flex items-center gap-2 text-sm text-slate-400">
@@ -92,7 +110,7 @@ function JobDetailModal({ job, onClose }: { job: Job; onClose: () => void }) {
             {completedDate && (
               <p className="flex items-center gap-2 text-sm text-slate-400">
                 <Calendar className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                Completed: {completedDate}
+                {t("Completed")}: {completedDate}
               </p>
             )}
           </div>
@@ -100,7 +118,7 @@ function JobDetailModal({ job, onClose }: { job: Job; onClose: () => void }) {
           {/* Description */}
           {job.description && (
             <div className="rounded-xl p-4 bg-white/5 border border-white/5">
-              <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-2">Diagnostic Notes</p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-2">{t("Diagnostic Notes")}</p>
               <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{job.description}</p>
             </div>
           )}
@@ -108,7 +126,7 @@ function JobDetailModal({ job, onClose }: { job: Job; onClose: () => void }) {
           {/* Price */}
           {job.final_price != null && parseFloat(job.final_price) > 0 && (
             <div className="rounded-2xl p-5 flex items-center justify-between bg-slate-800/50 border border-slate-700/50">
-              <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Final Price</p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">{t("Final Price")}</p>
               <span className="text-2xl font-black text-emerald-400">
                 {parseFloat(job.final_price).toLocaleString()} ETB
               </span>
@@ -122,16 +140,17 @@ function JobDetailModal({ job, onClose }: { job: Job; onClose: () => void }) {
 }
 
 function HistoryCard({ job, delay, onClick }: { job: Job; delay: number; onClick: () => void }) {
+  const { t, language } = useLanguage();
   const isCompleted = job.status === "COMPLETED";
   const isCancelled = job.status === "CANCELLED";
 
   const completedDate = (job.completed_at && !isNaN(new Date(job.completed_at).getTime()))
-    ? new Date(job.completed_at).toLocaleDateString("en-US", {
+    ? new Date(job.completed_at).toLocaleDateString(language === "am" ? "am-ET" : "en-US", {
         month: "short", day: "numeric", year: "numeric",
       })
     : null;
   const completedTime = (job.completed_at && !isNaN(new Date(job.completed_at).getTime()))
-    ? new Date(job.completed_at).toLocaleTimeString("en-US", {
+    ? new Date(job.completed_at).toLocaleTimeString(language === "am" ? "am-ET" : "en-US", {
         hour: "2-digit", minute: "2-digit",
       })
     : null;
@@ -166,14 +185,14 @@ function HistoryCard({ job, delay, onClick }: { job: Job; delay: number; onClick
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <span className="text-base font-bold truncate" style={{ color: "var(--text-primary)" }}>
-                {job.service_type || "Service"}
+                {job.service_type ? t(job.service_type as any) : t("Service Request")}
               </span>
               <span
                 className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${
                   isCompleted ? "status-completed" : isCancelled ? "status-cancelled" : ""
                 }`}
               >
-                {job.status}
+                {translateStatus(job.status, t)}
               </span>
             </div>
 
@@ -194,7 +213,7 @@ function HistoryCard({ job, delay, onClick }: { job: Job; delay: number; onClick
             ) : (
               <p className="text-xs font-medium px-2 py-1 rounded-lg"
                 style={{ background: "var(--border-subtle)", color: "var(--text-muted)" }}>
-                No charge
+                {t("No charge")}
               </p>
             )}
             {completedDate && (
@@ -219,6 +238,7 @@ export default function JobHistory() {
     historyLoading, historyError,
     fetchHistory, loadMoreHistory,
   } = useJobs();
+  const { t, language } = useLanguage();
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
 
   useEffect(() => {
@@ -239,11 +259,13 @@ export default function JobHistory() {
       >
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-black" style={{ color: "var(--text-primary)" }}>Job History</h2>
+            <h2 className="text-xl font-black" style={{ color: "var(--text-primary)" }}>{t("Job History")}</h2>
             <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
               {historyCount > 0
-                ? `${historyCount} completed job${historyCount !== 1 ? "s" : ""}`
-                : "Past completed & cancelled jobs"}
+                ? (language === "en"
+                  ? `${historyCount} completed job${historyCount !== 1 ? "s" : ""}`
+                  : `${historyCount} ተጠናቋል`)
+                : t("Past completed & cancelled jobs")}
             </p>
           </div>
           <button
@@ -266,7 +288,7 @@ export default function JobHistory() {
               <CheckCircle className="w-4 h-4 flex-shrink-0" style={{ color: "#10b981" }} />
               <div>
                 <p className="text-xs font-black" style={{ color: "#10b981" }}>{historyCount}</p>
-                <p className="text-xs" style={{ color: "#334155" }}>Completed</p>
+                <p className="text-xs" style={{ color: "#334155" }}>{t("Completed")}</p>
               </div>
             </div>
             <div
@@ -281,7 +303,7 @@ export default function JobHistory() {
                     .reduce((s, j) => s + parseFloat(j.final_price!), 0)
                     .toLocaleString()} ETB
                 </p>
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>Total Earned</p>
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t("Total Earned")}</p>
               </div>
             </div>
           </div>
@@ -296,13 +318,13 @@ export default function JobHistory() {
             style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.15)" }}
           >
             <XCircle className="w-10 h-10 mx-auto mb-3" style={{ color: "#f87171" }} />
-            <p className="text-sm font-semibold mb-4" style={{ color: "#f87171" }}>{historyError}</p>
+            <p className="text-sm font-semibold mb-4" style={{ color: "#f87171" }}>{t(historyError as any)}</p>
             <button
               onClick={() => fetchHistory(1)}
               className="px-4 py-2 rounded-xl text-sm font-semibold"
               style={{ background: "rgba(239,68,68,0.15)", color: "#f87171", border: "1px solid rgba(239,68,68,0.25)" }}
             >
-              Try Again
+              {t("Try Again")}
             </button>
           </div>
         )}
@@ -325,9 +347,9 @@ export default function JobHistory() {
             >
               <Clock className="w-10 h-10" style={{ color: "var(--accent-green)" }} />
             </div>
-            <h3 className="text-lg font-bold mb-2" style={{ color: "var(--text-primary)" }}>No history yet</h3>
+            <h3 className="text-lg font-bold mb-2" style={{ color: "var(--text-primary)" }}>{t("No history yet")}</h3>
             <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-              Completed jobs will appear here.
+              {t("Completed jobs will appear here.")}
             </p>
           </div>
         )}
@@ -348,7 +370,7 @@ export default function JobHistory() {
               color: "#3b82f6",
             }}
           >
-            <ChevronDown className="w-4 h-4" /> Load More
+            <ChevronDown className="w-4 h-4" /> {t("Load More")}
           </button>
         )}
 
@@ -362,7 +384,7 @@ export default function JobHistory() {
         {/* End of list */}
         {!historyNextPage && history.length > 0 && !historyLoading && (
           <p className="text-center text-xs py-4" style={{ color: "var(--text-muted)" }}>
-            — End of history —
+            {t("— End of history —")}
           </p>
         )}
       </div>

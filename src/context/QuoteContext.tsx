@@ -89,7 +89,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data?.message || "Failed to create quote.", data?.error_code ?? null);
+        setError(data?.message || "Failed to create recommendation.", data?.error_code ?? null);
         return null;
       }
       const q: Quote = { ...(data.data ?? data), items: data.data?.items ?? [] };
@@ -115,7 +115,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data?.message || "Failed to fetch quote.", data?.error_code ?? null);
+        setError(data?.message || "Failed to fetch recommendation.", data?.error_code ?? null);
         return null;
       }
       const q: Quote = data.data ?? data;
@@ -143,7 +143,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
         });
         const data = await res.json();
         if (!res.ok) {
-          setError(data?.message || "Failed to fetch quote for this job.", data?.error_code ?? null);
+          setError(data?.message || "Failed to fetch recommendation for this job.", data?.error_code ?? null);
           return null;
         }
         
@@ -164,13 +164,13 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
         });
         const data = await res.json();
         if (!res.ok) {
-          setError(data?.message || "Failed to fetch quote details.", data?.error_code ?? null);
+          setError(data?.message || "Failed to fetch recommendation details.", data?.error_code ?? null);
           return null;
         }
         return data.data ?? data;
       }
 
-      setError("No quote found for this job.");
+      setError("No recommendation found for this job.");
       return null;
     } catch (err) {
       console.error("[fetchQuoteByJob] Error:", err);
@@ -258,7 +258,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
       }
       return {
         success: false,
-        message: data?.message || "Failed to submit quote.",
+        message: data?.message || "Failed to submit recommendation.",
         error_code: data?.error_code,
       };
     } catch {
