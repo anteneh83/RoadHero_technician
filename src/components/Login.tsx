@@ -2,13 +2,15 @@
 import { useState, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
-import { Wrench, Delete, Phone, Globe } from "lucide-react";
+import { useTheme } from "../context/ThemeContext";
+import { Wrench, Delete, Phone, Globe, Sun, Moon } from "lucide-react";
 
 const KEYS = ["1","2","3","4","5","6","7","8","9","","0","⌫"];
 
 export default function Login() {
   const { login } = useAuth();
   const { t, language, setLanguage } = useLanguage();
+  const { theme, toggleTheme } = useTheme();
   const [phone, setPhone] = useState("");
   const [pin, setPin] = useState("");
   const [step, setStep] = useState<"phone" | "pin">("phone");
@@ -61,12 +63,35 @@ export default function Login() {
     <div className="min-h-dvh flex flex-col items-center justify-center relative overflow-hidden"
       style={{ background: "var(--bg-primary)" }}>
 
-      {/* Language Toggle */}
-      <div className="absolute top-4 right-4 z-10">
+      {/* Top-right controls: Theme + Language */}
+      <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+        {/* Theme toggle */}
+        <button
+          onClick={toggleTheme}
+          aria-label="Toggle theme"
+          className="flex items-center justify-center w-8 h-8 rounded-full transition-all active:scale-90"
+          style={{
+            background: "var(--bg-glass)",
+            border: "1px solid var(--border-subtle)",
+            color: "var(--text-secondary)",
+            backdropFilter: "blur(12px)",
+          }}
+        >
+          {theme === "dark"
+            ? <Sun className="w-4 h-4" style={{ color: "#f59e0b" }} />
+            : <Moon className="w-4 h-4" style={{ color: "#6366f1" }} />}
+        </button>
+
+        {/* Language toggle */}
         <button
           onClick={() => setLanguage(language === "en" ? "am" : "en")}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold uppercase transition-all"
-          style={{ background: "var(--bg-glass)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold uppercase transition-all active:scale-90"
+          style={{
+            background: "var(--bg-glass)",
+            border: "1px solid var(--border-subtle)",
+            color: "var(--text-secondary)",
+            backdropFilter: "blur(12px)",
+          }}
         >
           <Globe className="w-3.5 h-3.5" />
           {language === "en" ? "🇪🇹 AM" : "🇬🇧 EN"}
