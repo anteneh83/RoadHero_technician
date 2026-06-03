@@ -78,8 +78,12 @@ function normalizeJob(raw: any): Job {
     phone: raw.driver?.phone_number ?? raw.driver?.phone ?? raw.driver_phone ?? "",
   };
 
-  // Location — new API uses "location", old uses "incident_location" or flat "address"
-  const loc = raw.location ?? raw.incident_location;
+  // Location — new API uses "location", old uses "incident_location",
+  // or flat fields `incident_lat`/`incident_lng`, or legacy `address`.
+  let loc = raw.location ?? raw.incident_location;
+  if (!loc && (raw.incident_lat != null || raw.incident_lng != null)) {
+    loc = { lat: raw.incident_lat, lng: raw.incident_lng, address: raw.address ?? "" };
+  }
   const incident_location: IncidentLocation = loc
     ? { lat: loc.lat, lng: loc.lng, address: loc.address ?? "" }
     : { address: raw.address ?? "" };

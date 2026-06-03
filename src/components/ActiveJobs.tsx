@@ -68,7 +68,7 @@ function openNavigation(lat?: number, lng?: number, address?: string) {
 }
 
 // ─── JobCard ──────────────────────────────────────────────────────────────────
-function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: number) => void; onViewQuote: (jobId: number) => void }) {
+function JobCard({ job, onQuote, onViewQuote, onLiveTrack }: { job: Job; onQuote: (jobId: number) => void; onViewQuote: (jobId: number) => void; onLiveTrack?: (lat: number, lng: number, title?: string) => void }) {
   const { updateJobStatus, fetchJobs } = useJobs();
   const { t, language } = useLanguage();
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -80,6 +80,9 @@ function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: num
   // Quote button shows when job is in ARRIVED or DIAGNOSING state
   const showQuoteBtn = job.status === "ARRIVED" || job.status === "DIAGNOSING";
   const hasLocation = !!(job.incident_location?.lat || job.incident_location?.address);
+  const liveLat = job.incident_location?.lat ?? (job as any).incident_lat ?? (job as any).location?.lat;
+  const liveLng = job.incident_location?.lng ?? (job as any).incident_lng ?? (job as any).location?.lng;
+  const hasLiveLocation = liveLat != null && liveLng != null;
 
   const handleAction = useCallback(async (next: JobStatus, label: string) => {
     // Require confirmation before completing a job
@@ -128,7 +131,7 @@ function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: num
 
       {/* Card header — always visible */}
       <button className="w-full text-left p-4" onClick={() => setExpanded(e => !e)}>
-        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className="text-base font-black truncate" style={{ color: "var(--text-primary)" }}>
@@ -152,7 +155,22 @@ function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: num
               )}
             </p>
           </div>
-          <span className="text-lg flex-shrink-0" style={{ color: "var(--text-muted)" }}>{expanded ? "▲" : "▼"}</span>
+          <div className="flex items-center gap-2">
+            {hasLiveLocation && (
+              <span
+                onClick={(e) => { e.stopPropagation(); onLiveTrack?.(liveLat, liveLng, job.driver?.name || job.provider_name); }}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); onLiveTrack?.(liveLat, liveLng, job.driver?.name || job.provider_name); } }}
+                role="button"
+                tabIndex={0}
+                className="p-2 rounded-md mr-1"
+                style={{ background: 'rgba(59,130,246,0.06)', color: '#3b82f6' }}
+                aria-label="Live Tracking"
+              >
+                <MapPin className="w-4 h-4" />
+              </span>
+            )}
+            <span className="text-lg flex-shrink-0" style={{ color: "var(--text-muted)" }}>{expanded ? "▲" : "▼"}</span>
+          </div>
         </div>
       </button>
 
@@ -259,7 +277,8 @@ function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: num
             );
           })()}
 
-          {/* Navigate button — shows when there's a location */}
+          {/* (Live Tracking header icon is the canonical control; no bottom button) */}
+
           {hasLocation && (job.status === "ACCEPTED" || job.status === "EN_ROUTE") && (
             <button onClick={handleNavigate}
               className="w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95"
@@ -361,6 +380,7 @@ export default function ActiveJobs() {
   const [filter, setFilter] = useState<JobStatus | "ALL">("ALL");
   const [quoteJobId, setQuoteJobId] = useState<number | null>(null);
   const [viewQuoteJobId, setViewQuoteJobId] = useState<number | null>(null);
+  const [liveTrack, setLiveTrack] = useState<{ lat: number; lng: number; title?: string } | null>(null);
 
   const filtered = filter === "ALL" ? jobs : jobs.filter(j => j.status === filter);
 
@@ -431,7 +451,12 @@ export default function ActiveJobs() {
         {/* Job cards */}
         {filtered.map((job, i) => (
           <div key={job.id} style={{ animationDelay: `${i * 0.05}s` }}>
-            <JobCard job={job} onQuote={setQuoteJobId} onViewQuote={setViewQuoteJobId} />
+            <JobCard
+              job={job}
+              onQuote={setQuoteJobId}
+              onViewQuote={setViewQuoteJobId}
+              onLiveTrack={(lat, lng, title) => setLiveTrack({ lat, lng, title })}
+            />
           </div>
         ))}
       </div>
@@ -443,6 +468,47 @@ export default function ActiveJobs() {
           onClose={() => setQuoteJobId(null)}
           onSubmitted={() => { setQuoteJobId(null); fetchJobs(); }}
         />
+      )}
+
+      {/* Live Tracking modal (Google Maps embed) */}
+      {liveTrack && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setLiveTrack(null)} />
+          <div className="relative w-[92%] max-w-3xl rounded-2xl overflow-hidden" style={{ background: 'var(--bg-glass)', border: '1px solid var(--border-subtle)' }}>
+            <div className="flex items-center justify-between p-3 border-b" style={{ borderColor: 'rgba(148,163,184,0.06)' }}>
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4" />
+                <div className="text-sm font-semibold">{liveTrack.title ?? "Driver location"}</div>
+              </div>
+              <button onClick={() => setLiveTrack(null)} className="px-3 py-1 rounded-md" style={{ background: 'var(--border-subtle)' }}>Close</button>
+            </div>
+            <div style={{ height: 480 }}>
+              <iframe
+                title="Live tracking map"
+                width="100%"
+                height="100%"
+                frameBorder="0"
+                src={
+                  (() => {
+                    const lat = liveTrack.lat;
+                    const lng = liveTrack.lng;
+                    const delta = 0.01;
+                    const minLon = lng - delta;
+                    const minLat = lat - delta;
+                    const maxLon = lng + delta;
+                    const maxLat = lat + delta;
+                    return `https://www.openstreetmap.org/export/embed.html?bbox=${minLon}%2C${minLat}%2C${maxLon}%2C${maxLat}&layer=mapnik&marker=${lat}%2C${lng}`;
+                  })()
+                }
+              />
+            </div>
+            <div className="p-3 text-xs" style={{ background: 'rgba(255,255,255,0.02)' }}>
+              <a href={`https://www.openstreetmap.org/?mlat=${liveTrack.lat}&mlon=${liveTrack.lng}#map=17/${liveTrack.lat}/${liveTrack.lng}`} target="_blank" rel="noreferrer" style={{ color: '#60a5fa' }}>
+                Open in OpenStreetMap
+              </a>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Quote detail modal */}

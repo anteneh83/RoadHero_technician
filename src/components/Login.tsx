@@ -5,7 +5,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { useTheme } from "../context/ThemeContext";
 import { Wrench, Delete, Phone, Globe, Sun, Moon } from "lucide-react";
 
-const KEYS = ["1","2","3","4","5","6","7","8","9","","0","⌫"];
+const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"];
 
 export default function Login() {
   const { login } = useAuth();
@@ -38,7 +38,7 @@ export default function Login() {
       // auto-submit
       submitLogin(phone, next);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pin, phone]);
 
   const submitLogin = async (phoneNumber: string, pinValue: string) => {
