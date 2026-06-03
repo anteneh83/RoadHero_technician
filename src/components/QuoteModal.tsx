@@ -38,7 +38,7 @@ const EMPTY_ITEM = {
 const ERROR_CODE_LABELS: Record<string, { icon: string; color: string }> = {
   INSUFFICIENT_STOCK: { icon: "⚠️", color: "#f97316" },
   INVALID_TRANSITION: { icon: "🔒", color: "#f43f5e" },
-  BAD_REQUEST:        { icon: "❌", color: "#ef4444" },
+  BAD_REQUEST: { icon: "❌", color: "#ef4444" },
 };
 
 function ErrorBanner({ message, code }: { message: string; code?: string | null }) {
@@ -105,7 +105,7 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
     setInventoryError(null);
 
     const providerId = profile?.provider?.id;
-   
+
     // ── Attempt 1: provider inventory (works if tech token has access) ──
     try {
       const url1 = `${API_BASE_URL}/provider/inventory/`;
@@ -119,8 +119,8 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
         const list: InventoryItem[] = Array.isArray(raw)
           ? raw
           : Array.isArray(raw?.results)
-          ? raw.results
-          : [];
+            ? raw.results
+            : [];
         setInventoryItems(list);
         setInventoryLoading(false);
         return;
@@ -144,8 +144,8 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
           const list: InventoryItem[] = Array.isArray(raw)
             ? raw
             : Array.isArray(raw?.results)
-            ? raw.results
-            : [];
+              ? raw.results
+              : [];
           // normalise field names from API response
           const normalised: InventoryItem[] = list.map((p: any) => ({
             id: p.id,
@@ -215,7 +215,7 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
       item_type: newItem.item_type,
       description: newItem.description.trim(),
       quantity: newItem.quantity,
-      unit_price: price.toFixed(2),
+      unit_price: price,
       spare_part_id: newItem.spare_part_id !== ""
         ? parseInt(newItem.spare_part_id, 10)
         : null,
@@ -292,7 +292,7 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
                 <span style={{
                   color: quote.status === "SENT" ? "#fbbf24"
                     : quote.status === "DRAFT" ? "#60a5fa"
-                    : "#34d399"
+                      : "#34d399"
                 }}>
                   {quote.status}
                 </span>
@@ -391,10 +391,12 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
                       style={{ background: "var(--bg-card-hover)", border: "1px solid var(--border-subtle)" }}>
                       {/* Type icon */}
                       <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                        style={{ background: item.item_type === "PART" ? "rgba(59,130,246,0.15)" : "rgba(249,115,22,0.15)" }}>
+                        style={{ background: item.item_type === "PART" ? "rgba(59,130,246,0.15)" : item.item_type === "LABOR" ? "rgba(249,115,22,0.15)" : "rgba(168,85,247,0.15)" }}>
                         {item.item_type === "PART"
                           ? <Package className="w-4 h-4" style={{ color: "#3b82f6" }} />
-                          : <Wrench className="w-4 h-4" style={{ color: "#f97316" }} />}
+                          : item.item_type === "LABOR"
+                            ? <Wrench className="w-4 h-4" style={{ color: "#f97316" }} />
+                            : <Hash className="w-4 h-4" style={{ color: "#a78bfa" }} />}
                       </div>
                       {/* Details */}
                       <div className="flex-1 min-w-0">
@@ -436,22 +438,22 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
 
                 {/* PART / LABOR toggle */}
                 <div className="flex gap-2">
-                  {(["PART", "LABOR"] as ItemType[]).map(t => (
+                  {(["PART", "LABOR", "FEE"] as ItemType[]).map(t => (
                     <button key={t}
-                      onClick={() => setNewItem(p => ({ ...p, item_type: t, quantity: t === "LABOR" ? 1 : p.quantity }))}
+                      onClick={() => setNewItem(p => ({ ...p, item_type: t, quantity: (t === "LABOR" || t === "FEE") ? 1 : p.quantity, spare_part_id: t !== "PART" ? "" : p.spare_part_id }))}
                       className="flex-1 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all"
                       style={{
                         background: newItem.item_type === t
-                          ? (t === "PART" ? "rgba(59,130,246,0.2)" : "rgba(249,115,22,0.2)")
+                          ? (t === "PART" ? "rgba(59,130,246,0.2)" : t === "LABOR" ? "rgba(249,115,22,0.2)" : "rgba(168,85,247,0.2)")
                           : "rgba(255,255,255,0.04)",
                         border: `1px solid ${newItem.item_type === t
-                          ? (t === "PART" ? "rgba(59,130,246,0.4)" : "rgba(249,115,22,0.4)")
+                          ? (t === "PART" ? "rgba(59,130,246,0.4)" : t === "LABOR" ? "rgba(249,115,22,0.4)" : "rgba(168,85,247,0.4)")
                           : "rgba(148,163,184,0.1)"}`,
                         color: newItem.item_type === t
-                          ? (t === "PART" ? "#60a5fa" : "#fb923c")
+                          ? (t === "PART" ? "#60a5fa" : t === "LABOR" ? "#fb923c" : "#c084fc")
                           : "#64748b",
                       }}>
-                      {t === "PART" ? <Package className="w-4 h-4" /> : <Wrench className="w-4 h-4" />}
+                      {t === "PART" ? <Package className="w-4 h-4" /> : t === "LABOR" ? <Wrench className="w-4 h-4" /> : <Hash className="w-4 h-4" />}
                       {t}
                     </button>
                   ))}
@@ -479,7 +481,7 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
                     min={1}
                     value={newItem.quantity}
                     onChange={e => setNewItem(p => ({ ...p, quantity: Math.max(1, parseInt(e.target.value) || 1) }))}
-                    disabled={newItem.item_type === "LABOR"}
+                    disabled={newItem.item_type === "LABOR" || newItem.item_type === "FEE"}
                     className="w-20 px-3 py-3 rounded-xl text-sm text-center outline-none"
                     style={{
                       background: "var(--bg-glass)",
@@ -527,12 +529,12 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
                           {inventoryLoading
                             ? "⏳ Loading parts…"
                             : selectedPart
-                            ? selectedPart.name
-                            : inventoryError
-                            ? "⚠️ Could not load — enter manually"
-                            : inventoryItems.length === 0
-                            ? "No parts in inventory"
-                            : "Select spare part (optional)"}
+                              ? selectedPart.name
+                              : inventoryError
+                                ? "⚠️ Could not load — enter manually"
+                                : inventoryItems.length === 0
+                                  ? "No parts in inventory"
+                                  : "Select spare part (optional)"}
                         </span>
                         <span className="ml-2 flex-shrink-0" style={{ color: "#7c3aed" }}>
                           {inventoryLoading
@@ -590,8 +592,8 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
                                   background: isSelected
                                     ? "rgba(167,139,250,0.12)"
                                     : outOfStock
-                                    ? "transparent"
-                                    : "transparent",
+                                      ? "transparent"
+                                      : "transparent",
                                   opacity: outOfStock ? 0.45 : 1,
                                   cursor: outOfStock ? "not-allowed" : "pointer",
                                 }}
@@ -615,8 +617,8 @@ export default function QuoteModal({ jobId, onClose, onSubmitted }: QuoteModalPr
                                       background: outOfStock
                                         ? "rgba(239,68,68,0.12)"
                                         : lowStock
-                                        ? "rgba(249,115,22,0.12)"
-                                        : "rgba(16,185,129,0.12)",
+                                          ? "rgba(249,115,22,0.12)"
+                                          : "rgba(16,185,129,0.12)",
                                       color: outOfStock ? "#f87171" : lowStock ? "#f97316" : "#34d399",
                                     }}
                                   >

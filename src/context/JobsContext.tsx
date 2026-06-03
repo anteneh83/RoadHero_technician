@@ -87,11 +87,11 @@ function normalizeJob(raw: any): Job {
   // Vehicle — new API uses plate_number, old uses plate
   const vehicle: Vehicle | undefined = raw.vehicle
     ? {
-        make: raw.vehicle.make,
-        model: raw.vehicle.model,
-        year: raw.vehicle.year,
-        plate: raw.vehicle.plate_number ?? raw.vehicle.plate,
-      }
+      make: raw.vehicle.make,
+      model: raw.vehicle.model,
+      year: raw.vehicle.year,
+      plate: raw.vehicle.plate_number ?? raw.vehicle.plate,
+    }
     : undefined;
 
   return {
@@ -117,9 +117,9 @@ function normalizeJob(raw: any): Job {
 // Handles: data.data.results[], data.data[], data.results[], data[]
 function extractResults(data: any): any[] {
   if (Array.isArray(data?.data?.results)) return data.data.results;
-  if (Array.isArray(data?.data))          return data.data;
-  if (Array.isArray(data?.results))       return data.results;
-  if (Array.isArray(data))               return data;
+  if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.results)) return data.results;
+  if (Array.isArray(data)) return data;
   return [];
 }
 

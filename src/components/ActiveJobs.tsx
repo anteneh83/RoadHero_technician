@@ -13,35 +13,35 @@ import { useLanguage } from "../context/LanguageContext";
 
 // ─── Status filter tabs ───────────────────────────────────────────────────────
 const STATUS_FILTERS: { label: string; value: JobStatus | "ALL" }[] = [
-  { label: "All",           value: "ALL" },
-  { label: "Accepted",      value: "ACCEPTED" },
-  { label: "En Route",      value: "EN_ROUTE" },
-  { label: "Arrived",       value: "ARRIVED" },
-  { label: "Diagnosing",    value: "DIAGNOSING" },
+  { label: "All", value: "ALL" },
+  { label: "Accepted", value: "ACCEPTED" },
+  { label: "En Route", value: "EN_ROUTE" },
+  { label: "Arrived", value: "ARRIVED" },
+  { label: "Diagnosing", value: "DIAGNOSING" },
   { label: "Quote Pending", value: "QUOTE_PENDING" },
-  { label: "In Progress",   value: "IN_PROGRESS" },
+  { label: "In Progress", value: "IN_PROGRESS" },
 ];
 
 // ─── Status chip metadata ─────────────────────────────────────────────────────
 const STATUS_META: Record<string, { label: string; cls: string; icon: React.ElementType; pulse?: boolean }> = {
-  ACCEPTED:       { label: "Accepted",       cls: "status-diagnosing",    icon: Clock,        pulse: true  },
-  EN_ROUTE:       { label: "En Route",       cls: "status-arrived",       icon: Navigation,   pulse: true  },
-  ARRIVED:        { label: "Arrived",        cls: "status-arrived",       icon: MapPin,       pulse: true  },
-  DIAGNOSING:     { label: "Diagnosing",     cls: "status-diagnosing",    icon: Wrench,       pulse: true  },
-  QUOTE_PENDING:  { label: "Quote Pending",  cls: "status-quote-pending", icon: DollarSign              },
-  QUOTE_ACCEPTED: { label: "Quote Accepted", cls: "status-quote-accept",  icon: CheckCircle             },
-  IN_PROGRESS:    { label: "In Progress",    cls: "status-in-progress",   icon: Timer,        pulse: true  },
-  COMPLETED:      { label: "Completed",      cls: "status-completed",     icon: CheckCircle             },
-  CANCELLED:      { label: "Cancelled",      cls: "",                     icon: AlertTriangle           },
+  ACCEPTED: { label: "Accepted", cls: "status-diagnosing", icon: Clock, pulse: true },
+  EN_ROUTE: { label: "En Route", cls: "status-arrived", icon: Navigation, pulse: true },
+  ARRIVED: { label: "Arrived", cls: "status-arrived", icon: MapPin, pulse: true },
+  DIAGNOSING: { label: "Diagnosing", cls: "status-diagnosing", icon: Wrench, pulse: true },
+  QUOTE_PENDING: { label: "Quote Pending", cls: "status-quote-pending", icon: DollarSign },
+  QUOTE_ACCEPTED: { label: "Quote Accepted", cls: "status-quote-accept", icon: CheckCircle },
+  IN_PROGRESS: { label: "In Progress", cls: "status-in-progress", icon: Timer, pulse: true },
+  COMPLETED: { label: "Completed", cls: "status-completed", icon: CheckCircle },
+  CANCELLED: { label: "Cancelled", cls: "", icon: AlertTriangle },
 };
 
 // ─── Status transitions (matches backend exactly) ─────────────────────────────
 const NEXT_ACTIONS: Partial<Record<JobStatus, { label: string; next: JobStatus; color: string }[]>> = {
-  ACCEPTED:       [{ label: "I'm On My Way",    next: "EN_ROUTE",    color: "#06b6d4" }],
-  EN_ROUTE:       [{ label: "I've Arrived",     next: "ARRIVED",     color: "#3b82f6" }],
-  ARRIVED:        [{ label: "Start Work",       next: "IN_PROGRESS", color: "#8b5cf6" }],
-  QUOTE_ACCEPTED: [{ label: "Start Work",       next: "IN_PROGRESS", color: "#8b5cf6" }],
-  IN_PROGRESS:    [{ label: "Complete Job ✓",   next: "COMPLETED",   color: "#10b981" }],
+  ACCEPTED: [{ label: "I'm On My Way", next: "EN_ROUTE", color: "#06b6d4" }],
+  EN_ROUTE: [{ label: "I've Arrived", next: "ARRIVED", color: "#3b82f6" }],
+  ARRIVED: [{ label: "Start Work", next: "IN_PROGRESS", color: "#8b5cf6" }],
+  QUOTE_ACCEPTED: [{ label: "Start Work", next: "IN_PROGRESS", color: "#8b5cf6" }],
+  IN_PROGRESS: [{ label: "Complete Job ✓", next: "COMPLETED", color: "#10b981" }],
 };
 
 // ─── StatusChip ──────────────────────────────────────────────────────────────
@@ -95,12 +95,12 @@ function JobCard({ job, onQuote, onViewQuote }: { job: Job; onQuote: (jobId: num
       const msg = next === "EN_ROUTE"
         ? t("Status updated — you're now En Route 🚗")
         : next === "ARRIVED"
-        ? t("Marked as Arrived ✓")
-        : next === "IN_PROGRESS"
-        ? t("Work started ⚙️")
-        : next === "COMPLETED"
-        ? t("Job completed! 🎉")
-        : `${t("Status →")} ${next.replace(/_/g, " ")}`;
+          ? t("Marked as Arrived ✓")
+          : next === "IN_PROGRESS"
+            ? t("Work started ⚙️")
+            : next === "COMPLETED"
+              ? t("Job completed! 🎉")
+              : `${t("Status →")} ${next.replace(/_/g, " ")}`;
       setToast({ ok: true, msg });
       await fetchJobs();
     } else {

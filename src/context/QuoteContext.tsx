@@ -3,7 +3,7 @@ import { createContext, useContext, useState, ReactNode, useCallback, useRef } f
 import { useAuth, API_BASE_URL } from "./AuthContext";
 
 export type QuoteStatus = "DRAFT" | "SENT" | "APPROVED" | "REJECTED" | "REVISED";
-export type ItemType = "PART" | "LABOR";
+export type ItemType = "PART" | "LABOR" | "FEE";
 
 export interface QuoteItem {
   id: number;
@@ -32,7 +32,7 @@ export interface NewItemPayload {
   item_type: ItemType;
   description: string;
   quantity: number;
-  unit_price: string;
+  unit_price: number;
   spare_part_id?: number | null;
 }
 
@@ -82,7 +82,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
     setQuoteLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/provider/tech/jobs/${jobId}/quotes`, {
+      const res = await fetch(`${API_BASE_URL}/provider/jobs/${jobId}/quotes`, {
         method: "POST",
         headers: headers(),
         body: JSON.stringify({ notes }),
@@ -110,7 +110,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
     setQuoteLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/provider/tech/quotes/${quoteId}`, {
+      const res = await fetch(`${API_BASE_URL}/provider/quotes/${quoteId}`, {
         headers: headers(),
       });
       const data = await res.json();
@@ -138,7 +138,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
       let knownQuoteId = quoteMapRef.current[jobId];
 
       if (!knownQuoteId) {
-        const res = await fetch(`${API_BASE_URL}/provider/tech/jobs/${jobId}/quotes`, {
+        const res = await fetch(`${API_BASE_URL}/provider/jobs/${jobId}/quotes`, {
           headers: headers(),
         });
         const data = await res.json();
@@ -159,7 +159,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
       }
 
       if (knownQuoteId) {
-        const res = await fetch(`${API_BASE_URL}/provider/tech/quotes/${knownQuoteId}`, {
+        const res = await fetch(`${API_BASE_URL}/provider/quotes/${knownQuoteId}`, {
           headers: headers(),
         });
         const data = await res.json();
@@ -195,7 +195,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
       };
       if (item.spare_part_id != null) payload.spare_part_id = item.spare_part_id;
 
-      const res = await fetch(`${API_BASE_URL}/provider/tech/quotes/${quoteId}/items`, {
+      const res = await fetch(`${API_BASE_URL}/provider/quotes/${quoteId}/items`, {
         method: "POST",
         headers: headers(),
         body: JSON.stringify(payload),
@@ -223,7 +223,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
   const removeItem = useCallback(async (quoteId: number, itemId: number): Promise<ApiResult> => {
     if (!accessToken) return { success: false, message: "Not authenticated." };
     try {
-      const res = await fetch(`${API_BASE_URL}/provider/tech/quotes/${quoteId}/items/${itemId}`, {
+      const res = await fetch(`${API_BASE_URL}/provider/quotes/${quoteId}/items/${itemId}`, {
         method: "DELETE",
         headers: headers(),
       });
@@ -247,7 +247,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
   const submitQuote = useCallback(async (quoteId: number): Promise<ApiResult> => {
     if (!accessToken) return { success: false, message: "Not authenticated." };
     try {
-      const res = await fetch(`${API_BASE_URL}/provider/tech/quotes/${quoteId}/submit`, {
+      const res = await fetch(`${API_BASE_URL}/provider/quotes/${quoteId}/submit`, {
         method: "POST",
         headers: headers(),
       });
